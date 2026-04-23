@@ -1017,8 +1017,6 @@ void Renderer::DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, con
 
 	for (const RenderObject& obj : scene.GetObjects())
 	{
-		// Update transform (temporary approach)
-		const_cast<RenderObject&>(obj).UpdateTransform();
 
 		// Push model matrix
 		vkCmdPushConstants(

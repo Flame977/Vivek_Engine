@@ -11,13 +11,15 @@ RenderObject& Scene::CreateObject(
 )
 {
 	//just adding obj to list
-	RenderObject obj = { 
+	RenderObject obj = {
 		name,
 		mesh,
 		material,
 		pos,
 		rot,
 		scale };
+
+	obj.SetTransform(pos, rot, scale);
 
 	m_renderObjects.push_back(obj);
 	return m_renderObjects.back();
@@ -31,7 +33,7 @@ void Scene::DestroyLastObject()
 		m_renderObjects.pop_back();
 }
 
-const std::vector<RenderObject>& Scene::GetObjects() const 
+const std::vector<RenderObject>& Scene::GetObjects() const
 {
 	return m_renderObjects;
 }

@@ -1,5 +1,8 @@
 #pragma once
+
+#define NOMINMAX
 #include <windows.h>
+
 #include <filesystem>
 #include <cstdlib>
 #include <stdexcept>

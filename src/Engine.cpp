@@ -116,6 +116,8 @@ void Engine::OnUpdate()
 	}
 
 
+	/*
+
 	// Some object rotation code...
 	float speed = 45.0f;
 	if (m_window->IsKey(GLFW_KEY_RIGHT))
@@ -141,6 +143,9 @@ void Engine::OnUpdate()
 			current.rotation.y += speed * dt;
 		}
 	}
+	*/
+
+
 
 	m_renderer->DrawFrame(*m_camera, *m_scene);
 }
@@ -234,19 +239,12 @@ void Engine::HandleCameraInput(float deltaTime)
 
 void Engine::DrawImgui()
 {
-
 	//imguizmo stuff here...
 	ImGuizmo::BeginFrame();
 	ImGuizmo::SetRect(0,0, 
 		m_window->GetWidth(),
 		m_window->GetHeight()
 	);
-
-	const glm::mat4& view = m_camera->GetView();
-	const glm::mat4& proj = m_camera->GetProjection();
-
-	
-
 
 	const ImGuiViewport* viewport = ImGui::GetMainViewport();
 
@@ -261,23 +259,84 @@ void Engine::DrawImgui()
 
 	auto& objects = m_renderer->GetRenderObjects(*m_scene);
 
-	//adding all objects as a text field
+	static int selectedIndex = -1;
+
 	for (uint32_t i = 0; i < objects.size(); i++)
 	{
-		auto obj = objects[i];
+		if (ImGui::Selectable(objects[i].name.c_str(), selectedIndex == i))
+		{
+			selectedIndex = i;
+		}
+	}
 
-		ImGui::Text("Render Obj:: %s", objects[i].name.c_str());
+
+	static ImGuizmo::OPERATION operation = ImGuizmo::TRANSLATE;
+
+	if (selectedIndex >= 0 && selectedIndex < objects.size())
+	{
+		auto& obj = objects[selectedIndex];
+
+		// --- Decompose matrix ---
+		glm::vec3 translation;
+		glm::vec3 scale;
+		glm::quat rotationQuat;
+		glm::vec3 skew;
+		glm::vec4 perspective;
+
+		glm::decompose(
+			obj.transform,
+			scale,
+			rotationQuat,
+			translation,
+			skew,
+			perspective
+		);
+
+		// Convert rotation to Euler (degrees for UI)
+		glm::vec3 rotation = glm::degrees(glm::eulerAngles(rotationQuat));
+
+		// --- UI Fields ---
+		ImGui::Separator();
+		ImGui::Text("Transform");
+
+		ImGui::DragFloat3("Position", glm::value_ptr(translation), 0.1f);
+		ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.5f);
+		ImGui::DragFloat3("Scale", glm::value_ptr(scale), 0.1f);
+
+		// --- Recompose matrix ---
+		glm::quat newQuat = glm::quat(glm::radians(rotation));
+
+		glm::mat4 T = glm::translate(glm::mat4(1.0f), translation);
+		glm::mat4 R = glm::toMat4(newQuat);
+		glm::mat4 S = glm::scale(glm::mat4(1.0f), scale);
+
+		obj.transform = T * R * S;
+	}
+
+	ImGui::End();
+
+
+	// ---- GIZMO ----
+	if (selectedIndex >= 0 && selectedIndex < objects.size())
+	{
+		auto& obj = objects[selectedIndex];
+
+		glm::mat4 view = m_camera->GetView();
+		glm::mat4 proj = m_camera->GetProjection();
+
+		proj[1][1] *= -1.0f; // Vulkan fix
 
 		ImGuizmo::Manipulate(
 			glm::value_ptr(view),
 			glm::value_ptr(proj),
-			ImGuizmo::TRANSLATE,   // or ROTATE / SCALE
-			ImGuizmo::LOCAL,       // or WORLD
+			operation,
+			ImGuizmo::WORLD,
 			glm::value_ptr(obj.transform)
 		);
 
+
+
 	}
 
-	ImGui::End();
 }
 

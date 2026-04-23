@@ -114,6 +114,9 @@
     <ClCompile Include="external\imguizmo\ImSequencer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\RenderObject.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="external\glfw\include\GLFW\glfw3.h">
