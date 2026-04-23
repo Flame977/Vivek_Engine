@@ -86,6 +86,9 @@
       <AdditionalLibraryDirectories>$(ProjectDir)external/glfw/lib-vc2022;$(VULKAN_SDK)\Lib;$(ProjectDir)external/assimp/lib;$(ProjectDir)external/zlib</AdditionalLibraryDirectories>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);vulkan-1.lib;glfw3dll.lib;assimp-vc143-mtd.lib;zlibstaticd.lib</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)external\glfw\lib-vc2022\glfw3.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -106,6 +109,9 @@
       <AdditionalLibraryDirectories>$(ProjectDir)external/glfw/lib-vc2022;$(VULKAN_SDK)\Lib;$(ProjectDir)external/assimp/lib;$(ProjectDir)external/zlib</AdditionalLibraryDirectories>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);vulkan-1.lib;glfw3dll.lib;assimp-vc143-mtd.lib;zlibstaticd.lib</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)external\glfw\lib-vc2022\glfw3.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -122,6 +128,9 @@
       <AdditionalLibraryDirectories>$(ProjectDir)external/glfw/lib-vc2022;$(VULKAN_SDK)\Lib;$(ProjectDir)external/assimp/lib;$(ProjectDir)external/zlib</AdditionalLibraryDirectories>
       <AdditionalDependencies>%(AdditionalDependencies);vulkan-1.lib;glfw3dll.lib;assimp-vc143-mtd.lib;zlibstaticd.lib</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)external\glfw\lib-vc2022\glfw3.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -142,6 +151,9 @@
       <AdditionalLibraryDirectories>$(ProjectDir)external/glfw/lib-vc2022;$(VULKAN_SDK)\Lib;$(ProjectDir)external/assimp/lib;$(ProjectDir)external/zlib</AdditionalLibraryDirectories>
       <AdditionalDependencies>%(AdditionalDependencies);vulkan-1.lib;glfw3dll.lib;assimp-vc143-mtd.lib;zlibstaticd.lib</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)external\glfw\lib-vc2022\glfw3.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="external\imgui\backends\imgui_impl_glfw.cpp" />

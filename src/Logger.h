@@ -16,5 +16,5 @@ public:
 	}
 };
 
-#define LOG(...) Logger::Log(__VA_ARGS__)
+#define Log(...) Logger::Log(__VA_ARGS__)
 

@@ -103,7 +103,7 @@ void VulkanContext::InitImGui()
 		throw std::runtime_error("Failed to initialize ImGui Vulkan backend");
 	}
 	else
-		LOG("Created IMGUI successfully !");
+		Log("Created IMGUI successfully !");
 }
 
 void VulkanContext::ShutdownImGui()
@@ -290,7 +290,7 @@ void VulkanContext::RecreateSwapchain()
 
 void VulkanContext::UpdateUniforms(CameraUBO& camera)
 {
-	UpdateUniformBuffer(m_currentFrame,  camera);
+	UpdateUniformBuffer(m_currentFrame, camera);
 }
 
 VkDevice VulkanContext::GetDevice() const
@@ -348,12 +348,12 @@ VkPipelineLayout VulkanContext::GetGraphicsPipelineLayout() const
 	return m_graphicsPipelineLayout;
 }
 
-FrameResources& VulkanContext::GetFrame(uint32_t index) 
+FrameResources& VulkanContext::GetFrame(uint32_t index)
 {
 	return m_frames[index];
 }
 
-DescriptorManager& VulkanContext::GetDescriptorManager() 
+DescriptorManager& VulkanContext::GetDescriptorManager()
 {
 	return m_descriptorManager;
 }
@@ -428,8 +428,7 @@ void VulkanContext::CreateInstance()
 	createInfo.ppEnabledExtensionNames = extensions.data();
 
 	// Enable validation layers
-	createInfo.enabledLayerCount =
-		static_cast<uint32_t>(validationLayers.size());
+	createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
 	createInfo.ppEnabledLayerNames = validationLayers.data();
 
 	if (vkCreateInstance(&createInfo, nullptr, &m_instance) != VK_SUCCESS)
@@ -1130,6 +1129,7 @@ void VulkanContext::CreateCommandBuffers()
 }
 
 
+// not being used...
 void VulkanContext::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, const FrameResources& frame)
 {
 	VkCommandBufferBeginInfo beginInfo{};
@@ -1506,7 +1506,7 @@ void VulkanContext::DrawImGuiUI()
 	}
 	else
 	{
-		std::cout << "IMGUI callback not assigned !"<<std::endl;
+		std::cout << "IMGUI callback not assigned !" << std::endl;
 	}
 
 	ImGui::Render();

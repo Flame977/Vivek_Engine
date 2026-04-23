@@ -126,7 +126,7 @@ void Engine::OnUpdate()
 		{
 			RenderObject& current = objects.back();
 
-			LOG("rotating right...");
+			Log("rotating right...");
 			current.rotation.y -= speed * dt;
 		}
 	}
@@ -138,7 +138,7 @@ void Engine::OnUpdate()
 		{
 			RenderObject& current = objects.back();
 
-			LOG("rotating right...");
+			Log("rotating right...");
 			current.rotation.y += speed * dt;
 		}
 	}
