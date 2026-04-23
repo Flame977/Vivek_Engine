@@ -39,3 +39,10 @@
 
 # debug information files
 *.dwo
+
+# Dont need to commit files below
+/Vivek_Engine
+/x64
+/.vs
+imgui.ini
+Vivek_Engine.vcxproj.user
