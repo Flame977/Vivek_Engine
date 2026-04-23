@@ -40,6 +40,9 @@
 # debug information files
 *.dwo
 
+# Compiled shader files (SPIRV)
+*.spv
+
 # Dont need to commit files below
 /Vivek_Engine
 /x64
