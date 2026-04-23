@@ -5,7 +5,6 @@
 #include "Material.h"
 #include "RenderObject.h"
 #include "Scene.h"
-#include "ImGuizmo.h"
 
 Renderer::Renderer(VulkanContext& vulkan) :m_vulkan(vulkan)
 {

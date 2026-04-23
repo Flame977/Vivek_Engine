@@ -1,7 +1,6 @@
 #include <iostream>
 #include "Engine.h"
 
-
 Engine::Engine()
 {
 	// Automatic shader compilation!
@@ -235,6 +234,20 @@ void Engine::HandleCameraInput(float deltaTime)
 
 void Engine::DrawImgui()
 {
+
+	//imguizmo stuff here...
+	ImGuizmo::BeginFrame();
+	ImGuizmo::SetRect(0,0, 
+		m_window->GetWidth(),
+		m_window->GetHeight()
+	);
+
+	const glm::mat4& view = m_camera->GetView();
+	const glm::mat4& proj = m_camera->GetProjection();
+
+	
+
+
 	const ImGuiViewport* viewport = ImGui::GetMainViewport();
 
 	ImGui::SetNextWindowPos(ImVec2(
@@ -251,7 +264,18 @@ void Engine::DrawImgui()
 	//adding all objects as a text field
 	for (uint32_t i = 0; i < objects.size(); i++)
 	{
+		auto obj = objects[i];
+
 		ImGui::Text("Render Obj:: %s", objects[i].name.c_str());
+
+		ImGuizmo::Manipulate(
+			glm::value_ptr(view),
+			glm::value_ptr(proj),
+			ImGuizmo::TRANSLATE,   // or ROTATE / SCALE
+			ImGuizmo::LOCAL,       // or WORLD
+			glm::value_ptr(obj.transform)
+		);
+
 	}
 
 	ImGui::End();

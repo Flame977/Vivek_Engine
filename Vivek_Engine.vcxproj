@@ -119,7 +119,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);GLFW_DLL</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)external/glfw/include;%(AdditionalIncludeDirectories);$(VULKAN_SDK)\Include;$(ProjectDir)external/glm;$(ProjectDir)external/assimp;$(ProjectDir)external/zlib;$(ProjectDir)external/imgui;$(ProjectDir)external/imgui;$(ProjectDir)external/imgui/backends;$(ProjectDir)external/imgui;$(ProjectDir)external/imgui/backends;$(ProjectDir)external/imguizmo</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)external/glfw/include;%(AdditionalIncludeDirectories);$(VULKAN_SDK)\Include;$(ProjectDir)external/glm;$(ProjectDir)external/assimp;$(ProjectDir)external/zlib;$(ProjectDir)external/imgui;$(ProjectDir)external/imgui/backends;$(ProjectDir)external/imguizmo</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -156,6 +156,11 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="external\imguizmo\GraphEditor.cpp" />
+    <ClCompile Include="external\imguizmo\ImCurveEdit.cpp" />
+    <ClCompile Include="external\imguizmo\ImGradient.cpp" />
+    <ClCompile Include="external\imguizmo\ImGuizmo.cpp" />
+    <ClCompile Include="external\imguizmo\ImSequencer.cpp" />
     <ClCompile Include="external\imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="external\imgui\backends\imgui_impl_vulkan.cpp" />
     <ClCompile Include="external\imgui\imgui.cpp" />
