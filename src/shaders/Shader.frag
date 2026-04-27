@@ -15,7 +15,7 @@ struct Light
 {
     vec4 position;
     vec4 direction;
-    vec4 color;
+    vec4 color;      // w component of this vecotor is the intensity of the light !!!
     vec4 params;
 };
 
@@ -44,7 +44,7 @@ void main()
         vec3 lightDir = normalize(-light.direction.xyz);
         
         float attenuation = 1.0;
-        float intensity = 1.0;
+        float intensity = light.color.w;
 
         if (light.position.w == 2.0) // SPOT LIGHT
         {
@@ -65,9 +65,8 @@ void main()
             float inner = light.params.y;
             float outer = light.params.z;
         
-            float epsilon = inner - outer;
+            intensity = smoothstep(outer, inner, theta) * light.color.w;
         
-            intensity = clamp((theta - outer) / epsilon, 0.0, 1.0);
         }
 
 

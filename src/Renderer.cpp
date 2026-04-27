@@ -47,38 +47,57 @@ void Renderer::WaitIdle()
 
 void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 {
-	//scene building logic...
 
-
-	// OG DRAW LOGIC...
+	// DRAW LOGIC...
 
 	CameraUBO camData{};
 
 	camData.view = camera.GetView();
 	camData.proj = camera.GetProjection();
 
-	camData.lightInfo.x = 1;
+	// -----------------------------
+	// ECS LIGHT GATHERING HERE
+	// -----------------------------
+	int index = 0;
 
-	// Directional light
-	camData.lights[0].position.w = 0.0f; // type = directional
-	camData.lights[0].direction = glm::vec4(-1.0f, -1.0f, -1.0f, -1.0f);
-	camData.lights[0].color = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
-	
-	/*
-	// Spot light
-	camData.lights[1].position = glm::vec4(0.0f, 3.0f, -2.0f, 2.0f); // type = spot
-	camData.lights[1].direction = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
-	camData.lights[1].color = glm::vec4(10.0f, 0.0f, 0.0f, 1.0f);
+	for (auto& [entity, light] : scene.lights)
+	{
+		if (index >= MAX_LIGHTS)
+			break;
+
+		auto& gpuLight = camData.lights[index];
+
+		// w component of color is the intensity of the light color...
+		gpuLight.color = glm::vec4(light.color, light.intensity);
 
 
-	// cone angles (in radians -> convert to cos)
-	float inner = glm::cos(glm::radians(15.0f));
-	float outer = glm::cos(glm::radians(25.0f));
+		if (light.type == ECS::LightType::Directional)
+		{
+			gpuLight.direction = glm::vec4(light.direction, 0.0f);
+			gpuLight.position.w = 0.0f;
+		}
+		else if (light.type == ECS::LightType::Point)
+		{
+			gpuLight.position = glm::vec4(light.position, 1.0f);
+		}
+		else if (light.type == ECS::LightType::Spot)
+		{
+			gpuLight.position = glm::vec4(light.position, 2.0f);
+			gpuLight.direction = glm::vec4(light.direction, 0.0f);
 
-	camData.lights[1].params.x = 10.0f; // range
-	camData.lights[1].params.y = inner;
-	camData.lights[1].params.z = outer;
-	*/
+			// IMPORTANT: store COSINES
+			gpuLight.params.x = light.range;
+			gpuLight.params.y = cos(glm::radians(light.innerCone));
+			gpuLight.params.z = cos(glm::radians(light.outerCone));
+
+		}
+
+		index++;
+	}
+
+	//this decides the count of the lights in the shader...
+	camData.lightInfo.x = index;
+
 
 
 	m_vulkan.UpdateUniforms(camData);
@@ -1001,18 +1020,6 @@ void Renderer::DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, con
 		nullptr
 	);
 
-	// Bind global (camera) descriptor
-	vkCmdBindDescriptorSets(
-		cmd,
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		m_graphicsPipelineLayout,
-		0,
-		1,
-		&frame.globalDescriptorSet,
-		0,
-		nullptr
-	);
-
 	// Object rendering starts here...
 
 	for (const RenderObject& obj : scene.GetObjects())
@@ -1037,6 +1044,36 @@ void Renderer::DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, con
 		obj.mesh->Draw(cmd);
 	}
 
+	// ECS mesh render loop 
+	for (auto& [entity, meshRenderer] : scene.meshs)
+	{
+		if (!scene.transforms.count(entity) ||
+			!scene.materials.count(entity))
+			continue;
+
+		const auto& transform = scene.transforms.at(entity);
+		const auto& mat = scene.materials.at(entity);
+
+		glm::mat4 model = transform.GetMatrix();
+
+		// Push model matrix
+		vkCmdPushConstants(
+			cmd,
+			m_graphicsPipelineLayout,
+			VK_SHADER_STAGE_VERTEX_BIT,
+			0,
+			sizeof(glm::mat4),
+			&model
+		);
+
+		// Bind material (set 1)
+		mat.material->Bind(cmd, m_graphicsPipelineLayout);
+
+		// Bind mesh + draw
+		meshRenderer.mesh->Bind(cmd);
+		meshRenderer.mesh->Draw(cmd);
+
+	}
 
 }
 

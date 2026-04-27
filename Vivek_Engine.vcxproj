@@ -200,8 +200,10 @@
     <ClInclude Include="external\imgui\imgui.h" />
     <ClInclude Include="external\imgui\imgui_internal.h" />
     <ClInclude Include="src\Camera.h" />
+    <ClInclude Include="src\Components.h" />
     <ClInclude Include="src\DescriptorManager.h" />
     <ClInclude Include="src\Engine.h" />
+    <ClInclude Include="src\Entity.h" />
     <ClInclude Include="src\FrameResources.h" />
     <ClInclude Include="src\Logger.h" />
     <ClInclude Include="src\Material.h" />

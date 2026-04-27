@@ -19,6 +19,8 @@
 #include "gtx/quaternion.hpp"
 #include "gtx/matrix_decompose.hpp"
 
+#include "Entity.h"
+
 
 class Engine
 {
@@ -41,7 +43,12 @@ private:
 
 	void DrawImgui();
 
+	void DrawHierarchy(const ImGuiViewport* vp, Scene& scene);
 
+	void DrawInspector(const ImGuiViewport* vp, Scene& scene);
+
+	void DrawGizmos(Scene& scene);
+	
 
 	Timer m_timer;
 
@@ -55,8 +62,10 @@ private:
 
 	std::unique_ptr<Scene> m_scene;
 
+	ECS::Entity m_selectedEntity = (ECS::Entity)-1;
+
+
 
 	bool m_running = false;
-
 
 };

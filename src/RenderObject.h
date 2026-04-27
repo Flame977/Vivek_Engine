@@ -10,9 +10,12 @@
 #include "gtc/quaternion.hpp"         // glm::quat
 #include "gtx/quaternion.hpp"         // toMat4, eulerAngles
 
+using Entity = uint32_t;
+
 
 class RenderObject
 {
+
 public:
 	std::string name;
 

@@ -6,12 +6,14 @@ Engine::Engine()
 	// Automatic shader compilation!
 	Shader::CompileShaders();
 
-	m_window = std::make_unique<Window>(1280, 768, "Vivek Engine");
+	m_window = std::make_unique<Window>(1600, 900, "Vivek Engine");
 	m_vulkan = std::make_unique<VulkanContext>(*m_window);
 
 	// Renderer
 	m_renderer = std::make_unique<Renderer>(*m_vulkan);
-	m_camera = std::make_unique<Camera>(60, m_window->GetWidth() / m_window->GetHeight(), 0.1f, 100);
+
+	float aspect = m_vulkan->GetAspectRatio();
+	m_camera = std::make_unique<Camera>(60, aspect, 0.1f, 100);
 
 	// scene instance...
 	m_scene = std::make_unique<Scene>();
@@ -19,12 +21,55 @@ Engine::Engine()
 	Mesh* mesh = m_renderer->LoadMesh("Assets/Models/ak47.fbx");
 	Material* mat = m_renderer->LoadMaterial("Assets/Textures/ak47_albedo.png");
 
-	m_scene->CreateObject("ak1", mesh, mat, { 0,0,-3 }, { -90,0,0 }, { 1,1,1 });
+	//m_scene->CreateObject("ak1", mesh, mat, { 0,0,-3 }, { -90,0,0 }, { 1,1,1 });
 	//m_scene->CreateObject("ak2", mesh, mat, { 3,0,-3 }, { -90,0,0 }, { 1,1,1 });
 
 
-	float aspect = m_vulkan->GetAspectRatio();
-	m_camera->SetAspect(aspect);
+	// AK
+	auto e = m_scene->CreateEntity();
+	m_scene->names[e] = ECS::Name{ "ak_1" };
+	m_scene->transforms[e] = ECS::Transform{
+	{0, 0, -3},
+	{-90, 0, -90},
+	{1, 1, 1} };
+
+	m_scene->meshs[e] = ECS::MeshRenderer{ mesh };
+	m_scene->materials[e] = ECS::MaterialRenderer{ mat };
+
+	
+	// Sun light
+	ECS::Entity sunlight = m_scene->CreateEntity();
+
+	m_scene->names[sunlight] = { "Sun_Light" };
+
+	m_scene->lights[sunlight] = {
+		ECS::LightType::Directional,
+		{1.0f, 1.0f, 1.0f}, // color
+		1.0f,               // intensity
+		{0.0f, -1.0f, 0.0f}, // direction
+		{0.0f, 0.0f, -3.0f} // position
+	};
+	
+
+
+
+	// Spot light
+	ECS::Entity spot = m_scene->CreateEntity();
+
+	m_scene->names[spot] = { "Spot_Light" };
+	m_scene->lights[spot] = {
+		ECS::LightType::Spot,
+		{1.0f, 0.0f, 0.0f}, // color
+		10.0f,               // intensity
+		{0.0f, -1.0f, 0.0f}, // direction
+		{0.0f, 3.0f, -3.0f}, // position
+		10.0f,				// range
+		12.9f,				// inner
+		17.8f				// outer
+	};
+
+
+
 
 	m_vulkan->SetImguiDrawCallback([this]()
 		{
@@ -84,39 +129,42 @@ void Engine::OnUpdate()
 	m_rotationAngle += dt * 45.0f; // degrees/sec
 
 
+	/*
+
+
 	//creating objects at runtime...
 	if (m_window->IsKeyDown(GLFW_KEY_SPACE))
 	{
 		Mesh* akMesh = m_renderer->LoadMesh("Assets/Models/ak47.fbx");
 		Material* akMat = m_renderer->LoadMaterial("Assets/Textures/ak47_albedo.png");
 
-		//number
-		auto num = m_renderer->GetRenderObjects(*m_scene).size() + 1;
-		std::string index = std::to_string(num);
+		auto e = m_scene->CreateEntity();
+		m_scene->names[e] = ECS::Name{ "ak_" };
+		m_scene->transforms[e] = ECS::Transform{
+		{xPos, 0, -3},
+		{-90, 0, 0},
+		{1, 1, 1} };
+		m_scene->meshs[e] = ECS::MeshRenderer{ akMesh };
+		m_scene->materials[e] = ECS::MaterialRenderer{ akMat };
 
-		m_renderer->CreateRenderObject(*m_scene, "new_ak_" + index, akMesh, akMat, { xPos,0,-3 }, { -90,0,0 }, { 1,1,1 });
-		xPos += 3.0f;
+		xPos += 3;
+
 	}
 
 	//obj deletion code...
 	if (m_window->IsKeyDown(GLFW_KEY_DELETE))
 	{
-		auto& objects = m_renderer->GetRenderObjects(*m_scene);
+		const auto& entities = m_scene->GetEntities();
 
-		if (!objects.empty())
+		if (!entities.empty())
 		{
-			RenderObject* current = &objects.back();
-			m_renderer->DestroyRenderObject(*m_scene, current);
-			xPos -= 3.0f;
-		}
-		else
-		{
-			std::cout << "render objs are empty?" << std::endl;
+			auto last = entities.back();
+			m_scene->DestroyEntity(last);
+			xPos -= 3;
 		}
 	}
 
 
-	/*
 
 	// Some object rotation code...
 	float speed = 45.0f;
@@ -175,40 +223,44 @@ void Engine::OnResize(int width, int height)
 
 void Engine::HandleCameraInput(float deltaTime)
 {
-
-	// -------- Keyboard movement (WASD) --------
-	if (m_window->IsKey(GLFW_KEY_W))
-		m_camera->ProcessKeyboard(GLFW_KEY_W, deltaTime);
-
-	if (m_window->IsKey(GLFW_KEY_S))
-		m_camera->ProcessKeyboard(GLFW_KEY_S, deltaTime);
-
-	if (m_window->IsKey(GLFW_KEY_A))
-		m_camera->ProcessKeyboard(GLFW_KEY_A, deltaTime);
-
-	if (m_window->IsKey(GLFW_KEY_D))
-		m_camera->ProcessKeyboard(GLFW_KEY_D, deltaTime);
-
-	if (m_window->IsKey(GLFW_KEY_E))
-		m_camera->ProcessKeyboard(GLFW_KEY_E, deltaTime);
-
-	if (m_window->IsKey(GLFW_KEY_Q))
-		m_camera->ProcessKeyboard(GLFW_KEY_Q, deltaTime);
-
-
-	// -------- Speed boost (Shift like Unity) --------
-	if (m_window->IsKey(GLFW_KEY_LEFT_SHIFT))
-		m_camera->SetMoveSpeed(10.0f);
-	else
-		m_camera->SetMoveSpeed(5.0f);
-
 	// -------- Mouse look (Right Mouse Button) --------
 	static bool firstMouse = true;
 	static double lastX = 0.0;
 	static double lastY = 0.0;
 
+	// -------- Keyboard movement (WASD) --------
+
 	if (m_window->GetMouseButton(GLFW_MOUSE_BUTTON_RIGHT))
 	{
+
+		if (m_window->IsKey(GLFW_KEY_W))
+			m_camera->ProcessKeyboard(GLFW_KEY_W, deltaTime);
+
+		if (m_window->IsKey(GLFW_KEY_S))
+			m_camera->ProcessKeyboard(GLFW_KEY_S, deltaTime);
+
+		if (m_window->IsKey(GLFW_KEY_A))
+			m_camera->ProcessKeyboard(GLFW_KEY_A, deltaTime);
+
+		if (m_window->IsKey(GLFW_KEY_D))
+			m_camera->ProcessKeyboard(GLFW_KEY_D, deltaTime);
+
+		if (m_window->IsKey(GLFW_KEY_E))
+			m_camera->ProcessKeyboard(GLFW_KEY_E, deltaTime);
+
+		if (m_window->IsKey(GLFW_KEY_Q))
+			m_camera->ProcessKeyboard(GLFW_KEY_Q, deltaTime);
+
+
+
+		// -------- Speed boost (Shift like Unity) --------
+		if (m_window->IsKey(GLFW_KEY_LEFT_SHIFT))
+			m_camera->SetMoveSpeed(10.0f);
+		else
+			m_camera->SetMoveSpeed(5.0f);
+
+
+
 		m_window->SetCursorMode(false);
 
 		double xpos, ypos;
@@ -237,106 +289,227 @@ void Engine::HandleCameraInput(float deltaTime)
 }
 
 
+
 void Engine::DrawImgui()
 {
-	//imguizmo stuff here...
 	ImGuizmo::BeginFrame();
-	ImGuizmo::SetRect(0,0, 
-		m_window->GetWidth(),
-		m_window->GetHeight()
+
+	ImGuizmo::SetRect(
+		0, 0,
+		(float)m_window->GetWidth(),
+		(float)m_window->GetHeight()
 	);
 
-	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const ImGuiViewport* vp = ImGui::GetMainViewport();
 
+	auto& scene = *m_scene;
+
+	DrawHierarchy(vp, scene);
+
+	DrawInspector(vp, scene);
+
+	DrawGizmos(scene);
+
+}
+
+
+void Engine::DrawHierarchy(const ImGuiViewport* vp, Scene& scene)
+{
 	ImGui::SetNextWindowPos(ImVec2(
-		viewport->Pos.x + viewport->Size.x - 400,
-		viewport->Pos.y));
-	ImGui::SetNextWindowSize(ImVec2(400, viewport->Size.y));
+		vp->Pos.x,
+		vp->Pos.y));
 
-	ImGui::Begin("Vivek Engine");
+	ImGui::SetNextWindowSize(ImVec2(300, vp->Size.y));
 
-	ImGui::Text("FPS:: %.2f", m_renderer->GetFPS());
+	ImGui::Begin("Hierarchy");
 
-	auto& objects = m_renderer->GetRenderObjects(*m_scene);
+	// -------------------------------
+	// Selection
+	// -------------------------------
 
-	static int selectedIndex = -1;
-
-	for (uint32_t i = 0; i < objects.size(); i++)
+	for (ECS::Entity e : scene.GetEntities())
 	{
-		if (ImGui::Selectable(objects[i].name.c_str(), selectedIndex == i))
+		std::string label;
+
+		if (scene.names.count(e))
+			label = scene.names[e].name + " ";
+		else
+			label = "Entity_" + std::to_string(e);
+
+		if (ImGui::Selectable(label.c_str(), m_selectedEntity == e))
 		{
-			selectedIndex = i;
+			m_selectedEntity = e;
+		}
+	}
+
+	ImGui::End();
+}
+
+
+void Engine::DrawInspector(const ImGuiViewport* vp, Scene& scene)
+{
+	ImGui::SetNextWindowPos(ImVec2(
+		vp->Pos.x + vp->Size.x - 400,
+		vp->Pos.y));
+
+	ImGui::SetNextWindowSize(ImVec2(400, vp->Size.y));
+
+	ImGui::Begin("Inspector");
+
+
+	// -------------------------------
+	// Selected entity inspector
+	// -------------------------------
+	if (m_selectedEntity != (ECS::Entity)-1)
+	{
+		ImGui::Separator();
+		ImGui::Text("Inspector");
+
+		// -------- Name --------
+		if (scene.names.count(m_selectedEntity))
+		{
+			auto& name = scene.names[m_selectedEntity].name;
+
+			static char buffer[256];
+
+			auto lastSelected = (ECS::Entity)-1;
+			if (lastSelected != m_selectedEntity)
+			{
+				memset(buffer, 0, sizeof(buffer));
+				strncpy_s(buffer, name.c_str(), sizeof(buffer) - 1);
+				lastSelected = m_selectedEntity;
+			}
+
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("Name");
+			ImGui::SameLine();
+			if (ImGui::InputText("##Name", buffer, sizeof(buffer)))
+			{
+				name = buffer;
+			}
+		}
+
+		// -------- Transform --------
+		if (scene.transforms.count(m_selectedEntity))
+		{
+			auto& t = scene.transforms[m_selectedEntity];
+
+			ImGui::Separator();
+			ImGui::Text("Transform");
+
+			ImGui::DragFloat3("Position", glm::value_ptr(t.position), 0.1f);
+			ImGui::DragFloat3("Rotation", glm::value_ptr(t.rotation), 0.5f);
+			ImGui::DragFloat3("Scale", glm::value_ptr(t.scale), 0.1f);
 		}
 	}
 
 
-	static ImGuizmo::OPERATION operation = ImGuizmo::TRANSLATE;
-
-	if (selectedIndex >= 0 && selectedIndex < objects.size())
+	// Lights Inspector Menu
+	if (scene.lights.count(m_selectedEntity))
 	{
-		auto& obj = objects[selectedIndex];
+		auto& l = scene.lights[m_selectedEntity];
 
-		// --- Decompose matrix ---
-		glm::vec3 translation;
-		glm::vec3 scale;
-		glm::quat rotationQuat;
-		glm::vec3 skew;
-		glm::vec4 perspective;
+		ImGui::ColorEdit3("Color", glm::value_ptr(l.color));
+		ImGui::DragFloat("Intensity", &l.intensity, 0.1f);
 
-		glm::decompose(
-			obj.transform,
-			scale,
-			rotationQuat,
-			translation,
-			skew,
-			perspective
-		);
+		if (l.type == ECS::LightType::Directional)
+		{
+			ImGui::DragFloat3("Direction", glm::value_ptr(l.direction), 0.1f);
+		}
+		else if (l.type == ECS::LightType::Point)
+		{
+			ImGui::DragFloat3("Position", glm::value_ptr(l.position), 0.1f);
+			ImGui::DragFloat3("Direction", glm::value_ptr(l.direction), 0.1f);
+		}
+		else if (l.type == ECS::LightType::Spot)
+		{
+			ImGui::DragFloat3("Position", glm::value_ptr(l.position), 0.1f);
+			ImGui::DragFloat3("Direction", glm::value_ptr(l.direction), 0.1f);
 
-		// Convert rotation to Euler (degrees for UI)
-		glm::vec3 rotation = glm::degrees(glm::eulerAngles(rotationQuat));
+			ImGui::DragFloat("Range", &l.range, 0.1f);
 
-		// --- UI Fields ---
-		ImGui::Separator();
-		ImGui::Text("Transform");
 
-		ImGui::DragFloat3("Position", glm::value_ptr(translation), 0.1f);
-		ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.5f);
-		ImGui::DragFloat3("Scale", glm::value_ptr(scale), 0.1f);
+			ImGui::DragFloat("InnerCone", &l.innerCone, 0.1f);
+			ImGui::DragFloat("OuterCone", &l.outerCone, 0.1f);
 
-		// --- Recompose matrix ---
-		glm::quat newQuat = glm::quat(glm::radians(rotation));
+			// enforce relationship
+			l.innerCone = glm::clamp(l.innerCone, 0.0f, l.outerCone - 0.1f);
 
-		glm::mat4 T = glm::translate(glm::mat4(1.0f), translation);
-		glm::mat4 R = glm::toMat4(newQuat);
-		glm::mat4 S = glm::scale(glm::mat4(1.0f), scale);
+		}
 
-		obj.transform = T * R * S;
 	}
 
+
 	ImGui::End();
+}
 
 
-	// ---- GIZMO ----
-	if (selectedIndex >= 0 && selectedIndex < objects.size())
+void Engine::DrawGizmos(Scene& scene)
+{
+	// -------------------------------
+	// GIZMOS
+	// -------------------------------
+	if (m_selectedEntity != (ECS::Entity)-1 && scene.transforms.count(m_selectedEntity))
 	{
-		auto& obj = objects[selectedIndex];
+		auto& t = scene.transforms[m_selectedEntity];
 
 		glm::mat4 view = m_camera->GetView();
 		glm::mat4 proj = m_camera->GetProjection();
 
-		proj[1][1] *= -1.0f; // Vulkan fix
+		// Undo Vulkan flip for ImGuizmo
+		proj[1][1] *= -1.0f;
+
+		// Build matrix from TRS
+		glm::mat4 matrix = t.GetMatrix();
+
+		static ImGuizmo::OPERATION op = ImGuizmo::TRANSLATE;
+
+		// (optional) hotkeys
+		if (ImGui::IsKeyPressed(ImGuiKey_W)) op = ImGuizmo::TRANSLATE;
+		if (ImGui::IsKeyPressed(ImGuiKey_E)) op = ImGuizmo::ROTATE;
+		if (ImGui::IsKeyPressed(ImGuiKey_R)) op = ImGuizmo::SCALE;
 
 		ImGuizmo::Manipulate(
 			glm::value_ptr(view),
 			glm::value_ptr(proj),
-			operation,
+			op,
 			ImGuizmo::WORLD,
-			glm::value_ptr(obj.transform)
+			glm::value_ptr(matrix)
 		);
 
+		if (ImGuizmo::IsUsing())
+		{
+			// -------- Apply back to TRS --------
 
+			// Position
+			t.position = glm::vec3(matrix[3]);
 
+			// Scale
+			t.scale.x = glm::length(glm::vec3(matrix[0]));
+			t.scale.y = glm::length(glm::vec3(matrix[1]));
+			t.scale.z = glm::length(glm::vec3(matrix[2]));
+
+			// Rotation
+			glm::mat3 rotMat;
+			rotMat[0] = glm::vec3(matrix[0]) / t.scale.x;
+			rotMat[1] = glm::vec3(matrix[1]) / t.scale.y;
+			rotMat[2] = glm::vec3(matrix[2]) / t.scale.z;
+
+			glm::quat q = glm::quat_cast(rotMat);
+			t.rotation = glm::degrees(glm::eulerAngles(q));
+		}
 	}
 
+
+
 }
+
+
+
+
+
+
+
+
+
 
