@@ -79,6 +79,7 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 		else if (light.type == ECS::LightType::Point)
 		{
 			gpuLight.position = glm::vec4(light.position, 1.0f);
+			gpuLight.params.x = light.range;
 		}
 		else if (light.type == ECS::LightType::Spot)
 		{
@@ -152,6 +153,13 @@ Material* Renderer::LoadMaterial(const std::string& path)
 }
 
 
+Material* Renderer::LoadDefaultMaterial()
+{
+	auto ptr = LoadMaterial("Assets/Textures/default-tex.png");
+	return ptr;
+}
+
+
 Mesh Renderer::CreateMesh(const MeshData& data)
 {
 	//auto d = MeshLoader::Load("");
@@ -213,7 +221,6 @@ Material Renderer::CreateMaterial(const std::string& texPath)
 
 	return mat;
 }
-
 
 RenderObject* Renderer::CreateRenderObject(Scene& scene, const std::string& name, Mesh* mesh, Material* material, glm::vec3 pos, glm::vec3 rot, glm::vec3 scale)
 {

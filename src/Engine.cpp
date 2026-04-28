@@ -21,9 +21,12 @@ Engine::Engine()
 	Mesh* mesh = m_renderer->LoadMesh("Assets/Models/ak47.fbx");
 	Material* mat = m_renderer->LoadMaterial("Assets/Textures/ak47_albedo.png");
 
+	Material* defaultMat = m_renderer->LoadDefaultMaterial();
+
 	//m_scene->CreateObject("ak1", mesh, mat, { 0,0,-3 }, { -90,0,0 }, { 1,1,1 });
 	//m_scene->CreateObject("ak2", mesh, mat, { 3,0,-3 }, { -90,0,0 }, { 1,1,1 });
 
+	Mesh* monkey = m_renderer->LoadMesh("Assets/Models/suzzane.glb");
 
 	// AK
 	auto e = m_scene->CreateEntity();
@@ -36,7 +39,18 @@ Engine::Engine()
 	m_scene->meshs[e] = ECS::MeshRenderer{ mesh };
 	m_scene->materials[e] = ECS::MaterialRenderer{ mat };
 
-	
+	// Suzzane
+	auto s = m_scene->CreateEntity();
+	m_scene->names[s] = ECS::Name{ "Suzzane" };
+	m_scene->transforms[s] = ECS::Transform{
+	{6, 0, -3},
+	{0, 0, 0},
+	{1, 1, 1} };
+
+	m_scene->meshs[s] = ECS::MeshRenderer{ monkey };
+	m_scene->materials[s] = ECS::MaterialRenderer{ defaultMat };
+
+
 	// Sun light
 	ECS::Entity sunlight = m_scene->CreateEntity();
 
@@ -49,20 +63,47 @@ Engine::Engine()
 		{0.0f, -1.0f, 0.0f}, // direction
 		{0.0f, 0.0f, -3.0f} // position
 	};
-	
 
-
-
+	/*
 	// Spot light
 	ECS::Entity spot = m_scene->CreateEntity();
 
 	m_scene->names[spot] = { "Spot_Light" };
+	//m_scene->transforms[spot] = ECS::Transform{ };
+	//need to make it so that the transforms position matches that of the spot light pos
+
 	m_scene->lights[spot] = {
 		ECS::LightType::Spot,
 		{1.0f, 0.0f, 0.0f}, // color
 		10.0f,               // intensity
 		{0.0f, -1.0f, 0.0f}, // direction
+
+		//replace with transform pos
 		{0.0f, 3.0f, -3.0f}, // position
+
+		10.0f,				// range
+		12.9f,				// inner
+		17.8f				// outer
+	};
+
+	*/
+
+	// Spot light
+	ECS::Entity point = m_scene->CreateEntity();
+
+	m_scene->names[point] = { "Point_Light" };
+	//m_scene->transforms[spot] = ECS::Transform{ };
+	//need to make it so that the transforms position matches that of the spot light pos
+
+	m_scene->lights[point] = {
+		ECS::LightType::Point,
+		{1.0f, 0.0f, 0.0f}, // color
+		10.0f,               // intensity
+		{0.0f, -1.0f, 0.0f}, // direction
+
+		//replace with transform pos
+		{0.0f, 3.0f, -3.0f}, // position
+
 		10.0f,				// range
 		12.9f,				// inner
 		17.8f				// outer
@@ -164,35 +205,7 @@ void Engine::OnUpdate()
 		}
 	}
 
-
-
-	// Some object rotation code...
-	float speed = 45.0f;
-	if (m_window->IsKey(GLFW_KEY_RIGHT))
-	{
-		auto& objects = m_renderer->GetRenderObjects(*m_scene);
-		if (!objects.empty())
-		{
-			RenderObject& current = objects.back();
-
-			Log("rotating right...");
-			current.rotation.y -= speed * dt;
-		}
-	}
-
-	if (m_window->IsKey(GLFW_KEY_LEFT))
-	{
-		auto& objects = m_renderer->GetRenderObjects(*m_scene);
-		if (!objects.empty())
-		{
-			RenderObject& current = objects.back();
-
-			Log("rotating right...");
-			current.rotation.y += speed * dt;
-		}
-	}
 	*/
-
 
 
 	m_renderer->DrawFrame(*m_camera, *m_scene);
@@ -232,6 +245,7 @@ void Engine::HandleCameraInput(float deltaTime)
 
 	if (m_window->GetMouseButton(GLFW_MOUSE_BUTTON_RIGHT))
 	{
+		//m_selectedEntity = (ECS::Entity)-1;
 
 		if (m_window->IsKey(GLFW_KEY_W))
 			m_camera->ProcessKeyboard(GLFW_KEY_W, deltaTime);
@@ -412,6 +426,9 @@ void Engine::DrawInspector(const ImGuiViewport* vp, Scene& scene)
 		ImGui::ColorEdit3("Color", glm::value_ptr(l.color));
 		ImGui::DragFloat("Intensity", &l.intensity, 0.1f);
 
+		l.intensity = glm::clamp(l.intensity, 0.0f, 1000.0f);
+
+
 		if (l.type == ECS::LightType::Directional)
 		{
 			ImGui::DragFloat3("Direction", glm::value_ptr(l.direction), 0.1f);
@@ -419,7 +436,10 @@ void Engine::DrawInspector(const ImGuiViewport* vp, Scene& scene)
 		else if (l.type == ECS::LightType::Point)
 		{
 			ImGui::DragFloat3("Position", glm::value_ptr(l.position), 0.1f);
-			ImGui::DragFloat3("Direction", glm::value_ptr(l.direction), 0.1f);
+			//ImGui::DragFloat3("Direction", glm::value_ptr(l.direction), 0.1f);
+
+			ImGui::DragFloat("Range", &l.range, 0.1f);
+
 		}
 		else if (l.type == ECS::LightType::Spot)
 		{

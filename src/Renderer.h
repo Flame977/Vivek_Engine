@@ -38,6 +38,8 @@ public:
 
 	Material* LoadMaterial(const std::string& path);
 
+	Material* LoadDefaultMaterial();
+
 	Mesh CreateMesh(const MeshData& data);
 
 	Material CreateMaterial(const std::string& texPath);

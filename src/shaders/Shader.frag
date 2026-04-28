@@ -16,7 +16,7 @@ struct Light
     vec4 position;
     vec4 direction;
     vec4 color;      // w component of this vecotor is the intensity of the light !!!
-    vec4 params;
+    vec4 params;     // x is range, y is inner, z is outer
 };
 
 layout(set = 0, binding = 0) uniform CameraUBO
@@ -66,6 +66,21 @@ void main()
             float outer = light.params.z;
         
             intensity = smoothstep(outer, inner, theta) * light.color.w;
+        
+        }
+        else if (light.position.w == 1.0) // POINT LIGHT
+        {
+            vec3 toLight = light.position.xyz - fragPos;
+            float dist = length(toLight);
+
+            lightDir = normalize(toLight);
+
+            float range = light.params.x;
+
+            attenuation = 1.0 / (1.0 + (dist * dist) / (range * range));
+
+            float fade = clamp(1.0 - (dist / range), 0.0, 1.0);
+            attenuation *= fade;
         
         }
 
