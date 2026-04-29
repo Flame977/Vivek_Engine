@@ -1,53 +1,48 @@
 #pragma once
 
-#include "RenderObject.h"
 #include <unordered_map>
 #include <algorithm>
 #include "Components.h"
+#include "Renderer.h"
 
-using Entity = uint32_t;
 
 class Scene
 {
 public:
 
-	RenderObject& CreateObject(
-		const std::string& name,
-		Mesh* mesh,
-		Material* material,
-		glm::vec3 pos,
-		glm::vec3 rot,
-		glm::vec3 scale
-	);
 
-	void DestroyLastObject();
+	ECS::Entity CreateEntity();
+	void DestroyEntity(ECS::Entity e);
+	void RemoveAllEntities(ECS::Entity e);
 
-	const std::vector<RenderObject>& GetObjects() const;
+	void CreatePrimitive(Renderer& renderer, const std::string& meshPath, const std::string& name);
+	void CreateCube(Renderer& renderer);
+	void CreateSphere(Renderer& renderer);
+	void CreateCylinder(Renderer& renderer);
+	void CreateCone(Renderer& renderer);
+	void CreatePlane(Renderer& renderer);
 
-	std::vector<RenderObject>& GetObjects();
-
-
-
-	Entity CreateEntity();
-	void DestroyEntity(Entity e);
-	void RemoveAllEntities(Entity e);
-
+	void LoadSkybox(Renderer& renderer);
+	void SetSkyboxDrawState(bool state);
+	//bool& GetSkyboxDrawState();
 
 	// ECS components...
-	
-	std::unordered_map<Entity, ECS::Name> names;
-	std::unordered_map<Entity, ECS::Transform> transforms;
-	std::unordered_map<Entity, ECS::MeshRenderer> meshs;
-	std::unordered_map<Entity, ECS::MaterialRenderer> materials;
-	std::unordered_map<Entity, ECS::LightComponent> lights;
 
-	std::vector<Entity>& GetEntities();
+	std::unordered_map<ECS::Entity, ECS::Name> names;
+	std::unordered_map<ECS::Entity, ECS::Transform> transforms;
+	std::unordered_map<ECS::Entity, ECS::MeshRenderer> meshs;
+	std::unordered_map<ECS::Entity, ECS::MaterialRenderer> materials;
+	std::unordered_map<ECS::Entity, ECS::LightComponent> lights;
+
+	std::vector<ECS::Entity>& GetEntities();
+
+	bool DrawSkybox = false;
+
 
 private:
 
-	std::vector<RenderObject> m_renderObjects;
+	ECS::Entity m_nextEntity = 0;
+	std::vector<ECS::Entity> m_entities;
 
-	Entity m_nextEntity = 0;
-	std::vector<Entity> m_entities;
 
 };

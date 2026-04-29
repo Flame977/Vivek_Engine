@@ -3,7 +3,6 @@
 #include "Camera.h"
 #include "Mesh.h"
 #include "Material.h"
-#include "RenderObject.h"
 #include "Scene.h"
 
 Renderer::Renderer(VulkanContext& vulkan) :m_vulkan(vulkan)
@@ -22,9 +21,12 @@ void Renderer::InitRenderer()
 
 	CreateFrameDescriptors();
 
+	//this logic should be called in the scene...
+	/*
 	CreateSkybox();
 
 	CreateSkyboxDescriptors();
+	*/
 
 	CreatePipelines();
 
@@ -155,7 +157,7 @@ Material* Renderer::LoadMaterial(const std::string& path)
 
 Material* Renderer::LoadDefaultMaterial()
 {
-	auto ptr = LoadMaterial("Assets/Textures/default-tex.png");
+	auto ptr = LoadMaterial("Assets/Textures/default-tex-white.png");
 	return ptr;
 }
 
@@ -222,29 +224,6 @@ Material Renderer::CreateMaterial(const std::string& texPath)
 	return mat;
 }
 
-RenderObject* Renderer::CreateRenderObject(Scene& scene, const std::string& name, Mesh* mesh, Material* material, glm::vec3 pos, glm::vec3 rot, glm::vec3 scale)
-{
-	auto obj = scene.CreateObject(
-		name,
-		mesh,
-		material,
-		pos,
-		rot,
-		scale);
-
-	return &obj;
-}
-
-void Renderer::DestroyRenderObject(Scene& scene, RenderObject* obj)
-{
-	scene.DestroyLastObject();
-}
-
-std::vector<RenderObject>& Renderer::GetRenderObjects(Scene& scene)
-{
-	return scene.GetObjects();
-}
-
 void Renderer::SetFPS(float fps)
 {
 	m_vulkan.SetDisplayFps(fps);
@@ -265,7 +244,7 @@ void Renderer::RecordCommands(
 	// Begin render pass
 	m_vulkan.BeginRenderPass(cmd, imageIndex);
 
-	DrawSkybox(cmd, frame);
+	DrawSkybox(cmd, frame, scene);
 
 	DrawObjects(cmd, frame, scene);
 
@@ -1008,6 +987,7 @@ void Renderer::CreateSkyboxGeometry()
 
 void Renderer::DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, const Scene& scene)
 {
+
 	// Bind graphics pipeline
 	vkCmdBindPipeline(
 		cmd,
@@ -1028,7 +1008,7 @@ void Renderer::DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, con
 	);
 
 	// Object rendering starts here...
-
+	/*
 	for (const RenderObject& obj : scene.GetObjects())
 	{
 
@@ -1050,6 +1030,7 @@ void Renderer::DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, con
 		// Draw mesh
 		obj.mesh->Draw(cmd);
 	}
+	*/
 
 	// ECS mesh render loop 
 	for (auto& [entity, meshRenderer] : scene.meshs)
@@ -1085,8 +1066,11 @@ void Renderer::DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, con
 }
 
 
-void Renderer::DrawSkybox(VkCommandBuffer cmd, const FrameResources& frame)
+void Renderer::DrawSkybox(VkCommandBuffer cmd, const FrameResources& frame, const Scene& scene)
 {
+
+	if (!scene.DrawSkybox)return;
+
 	// Bind skybox pipeline
 	vkCmdBindPipeline(
 		cmd,

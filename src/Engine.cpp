@@ -17,16 +17,17 @@ Engine::Engine()
 
 	// scene instance...
 	m_scene = std::make_unique<Scene>();
+	m_scene->LoadSkybox(*m_renderer);
+
 
 	Mesh* mesh = m_renderer->LoadMesh("Assets/Models/ak47.fbx");
-	Material* mat = m_renderer->LoadMaterial("Assets/Textures/ak47_albedo.png");
+	Mesh* monkey = m_renderer->LoadMesh("Assets/Models/suzzane.glb");
 
+	Material* mat = m_renderer->LoadMaterial("Assets/Textures/ak47_albedo.png");
 	Material* defaultMat = m_renderer->LoadDefaultMaterial();
 
-	//m_scene->CreateObject("ak1", mesh, mat, { 0,0,-3 }, { -90,0,0 }, { 1,1,1 });
-	//m_scene->CreateObject("ak2", mesh, mat, { 3,0,-3 }, { -90,0,0 }, { 1,1,1 });
 
-	Mesh* monkey = m_renderer->LoadMesh("Assets/Models/suzzane.glb");
+	m_scene->CreateSphere(*m_renderer);
 
 	// AK
 	auto e = m_scene->CreateEntity();
@@ -314,26 +315,51 @@ void Engine::DrawImgui()
 		(float)m_window->GetHeight()
 	);
 
-	const ImGuiViewport* vp = ImGui::GetMainViewport();
+	ImGuiViewport* vp = ImGui::GetMainViewport();
 
 	auto& scene = *m_scene;
 
-	DrawHierarchy(vp, scene);
+	float menuHeight = DrawMenuBar(scene);
 
-	DrawInspector(vp, scene);
+	DrawHierarchy(vp, menuHeight, scene);
+
+	DrawInspector(vp, menuHeight, scene);
 
 	DrawGizmos(scene);
 
 }
 
+float Engine::DrawMenuBar(Scene& scene)
+{
+	if (ImGui::BeginMainMenuBar())
+	{
+		if (ImGui::BeginMenu("Scene"))
+		{
+			ImGui::MenuItem("Show Skybox", nullptr, &scene.DrawSkybox);
 
-void Engine::DrawHierarchy(const ImGuiViewport* vp, Scene& scene)
+			if (ImGui::MenuItem("Create Cube"))
+			{
+				scene.CreateCube(*m_renderer);
+			}
+
+			ImGui::EndMenu();
+		}
+
+
+	}
+
+	ImGui::EndMainMenuBar();
+
+	return ImGui::GetFrameHeight();
+}
+
+void Engine::DrawHierarchy(const ImGuiViewport* vp, float menuHeight, Scene& scene)
 {
 	ImGui::SetNextWindowPos(ImVec2(
 		vp->Pos.x,
-		vp->Pos.y));
+		vp->Pos.y + menuHeight));
 
-	ImGui::SetNextWindowSize(ImVec2(300, vp->Size.y));
+	ImGui::SetNextWindowSize(ImVec2(300, vp->Size.y - menuHeight));
 
 	ImGui::Begin("Hierarchy");
 
@@ -360,13 +386,13 @@ void Engine::DrawHierarchy(const ImGuiViewport* vp, Scene& scene)
 }
 
 
-void Engine::DrawInspector(const ImGuiViewport* vp, Scene& scene)
+void Engine::DrawInspector(const ImGuiViewport* vp, float menuHeight, Scene& scene)
 {
 	ImGui::SetNextWindowPos(ImVec2(
 		vp->Pos.x + vp->Size.x - 400,
-		vp->Pos.y));
+		vp->Pos.y + menuHeight));
 
-	ImGui::SetNextWindowSize(ImVec2(400, vp->Size.y));
+	ImGui::SetNextWindowSize(ImVec2(400, vp->Size.y - menuHeight));
 
 	ImGui::Begin("Inspector");
 
@@ -462,6 +488,7 @@ void Engine::DrawInspector(const ImGuiViewport* vp, Scene& scene)
 
 	ImGui::End();
 }
+
 
 
 void Engine::DrawGizmos(Scene& scene)

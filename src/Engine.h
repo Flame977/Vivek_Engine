@@ -15,11 +15,9 @@
 //#include "glm.hpp"
 #include "gtc/matrix_transform.hpp"
 #include "gtc/type_ptr.hpp"
-		 
+
 #include "gtx/quaternion.hpp"
 #include "gtx/matrix_decompose.hpp"
-
-#include "Entity.h"
 
 
 class Engine
@@ -43,12 +41,14 @@ private:
 
 	void DrawImgui();
 
-	void DrawHierarchy(const ImGuiViewport* vp, Scene& scene);
+	float DrawMenuBar(Scene& scene);
 
-	void DrawInspector(const ImGuiViewport* vp, Scene& scene);
+	void DrawHierarchy(const ImGuiViewport* vp, float menuHeight, Scene& scene);
+
+	void DrawInspector(const ImGuiViewport* vp, float menuHeight, Scene& scene);
 
 	void DrawGizmos(Scene& scene);
-	
+
 
 	Timer m_timer;
 

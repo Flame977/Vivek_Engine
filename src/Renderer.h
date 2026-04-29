@@ -15,7 +15,6 @@ class VulkanContext;
 class Camera;
 class Mesh;
 class Material;
-class RenderObject;
 class Scene;
 
 class Renderer
@@ -44,20 +43,6 @@ public:
 
 	Material CreateMaterial(const std::string& texPath);
 
-	RenderObject* CreateRenderObject(
-		Scene& scene,
-		const std::string& name,
-		Mesh* mesh,
-		Material* material,
-		glm::vec3 pos,
-		glm::vec3 rot,
-		glm::vec3 scale
-	);
-
-	void DestroyRenderObject(Scene& scene, RenderObject* obj);
-
-	std::vector<RenderObject>& GetRenderObjects(Scene& scene);
-
 	void SetFPS(float fps);
 
 	float GetFPS() const;
@@ -72,6 +57,12 @@ public:
 	VkDescriptorSetLayout GetFrameLayout() const { return m_frameDescriptorSetLayout; }
 	VkDescriptorSetLayout GetMaterialLayout() const { return m_materialDescriptorSetLayout; }
 
+	//will be called by the scene later...
+
+	void CreateSkybox();
+
+	void CreateSkyboxDescriptors();
+
 private:
 
 	void CreateDescriptorLayouts();
@@ -80,7 +71,6 @@ private:
 
 	void CreateFrameDescriptors();
 
-	void CreateSkyboxDescriptors();
 
 	void Cleanup();
 
@@ -90,13 +80,12 @@ private:
 
 	void CreateSkyboxPipeline();
 
-	void CreateSkybox();
 
 	void CreateSkyboxGeometry();
 
-	void DrawObjects(VkCommandBuffer cmd, const FrameResources& frame,const Scene& scene);
+	void DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, const Scene& scene);
 
-	void DrawSkybox(VkCommandBuffer cmd, const FrameResources& frame);
+	void DrawSkybox(VkCommandBuffer cmd, const FrameResources& frame, const Scene& scene);
 
 private:
 

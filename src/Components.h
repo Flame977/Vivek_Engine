@@ -4,10 +4,14 @@
 #include "glm.hpp"
 #include "gtc/matrix_transform.hpp"
 #include "gtx/quaternion.hpp"
+#include "Mesh.h"
+#include "Material.h"
 
 
 namespace ECS
 {
+	using Entity = uint32_t;
+
 	struct Name
 	{
 		std::string name;

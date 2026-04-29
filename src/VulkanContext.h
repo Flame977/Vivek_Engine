@@ -18,7 +18,6 @@
 #include "MeshData.h"
 #include "Mesh.h"
 #include "MeshLoader.h"
-#include "RenderObject.h"
 #include "ext/matrix_transform.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"

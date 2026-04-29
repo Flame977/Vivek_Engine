@@ -1,57 +1,13 @@
 #include "Scene.h"
 
-
-RenderObject& Scene::CreateObject(
-	const std::string& name,
-	Mesh* mesh,
-	Material* material,
-	glm::vec3 pos,
-	glm::vec3 rot,
-	glm::vec3 scale
-)
+ECS::Entity Scene::CreateEntity()
 {
-
-	//just adding obj to list
-	RenderObject obj = {
-		name,
-		mesh,
-		material,
-		pos,
-		rot,
-		scale };
-
-	obj.SetTransform(pos, rot, scale);
-
-	m_renderObjects.push_back(obj);
-	return m_renderObjects.back();
-}
-
-
-void Scene::DestroyLastObject()
-{
-	//just removing the last object
-	if (!m_renderObjects.empty())
-		m_renderObjects.pop_back();
-}
-
-const std::vector<RenderObject>& Scene::GetObjects() const
-{
-	return m_renderObjects;
-}
-
-std::vector<RenderObject>& Scene::GetObjects()
-{
-	return m_renderObjects;
-}
-
-Entity Scene::CreateEntity()
-{
-	Entity e = m_nextEntity++;
+	ECS::Entity e = m_nextEntity++;
 	m_entities.push_back(e);
 	return e;
 }
 
-void Scene::DestroyEntity(Entity e)
+void Scene::DestroyEntity(ECS::Entity e)
 {
 	// Remove from entity list
 	m_entities.erase(
@@ -62,19 +18,71 @@ void Scene::DestroyEntity(Entity e)
 	RemoveAllEntities(e);
 }
 
-void Scene::RemoveAllEntities(Entity e)
+void Scene::RemoveAllEntities(ECS::Entity e)
 {
 	names.erase(e);
 	transforms.erase(e);
 	meshs.erase(e);
 	materials.erase(e);
 	lights.erase(e);
-	
+
+}
+
+void Scene::CreatePrimitive(Renderer& renderer, const std::string& meshPath, const std::string& name)
+{
+	auto m = renderer.LoadMesh(meshPath);
+	auto mat = renderer.LoadDefaultMaterial();
+
+	auto p = this->CreateEntity();
+	this->names[p] = ECS::Name{ name };
+	this->transforms[p] = ECS::Transform{
+	{0, 0, 0},
+	{0, 0, 0},
+	{1, 1, 1} };
+
+	this->meshs[p] = ECS::MeshRenderer{ m };
+	this->materials[p] = ECS::MaterialRenderer{ mat };
+}
+
+void Scene::CreateCube(Renderer& renderer)
+{
+	CreatePrimitive(renderer, "Assets/Models/Primitives/cube.fbx", "Cube");
+}
+
+void Scene::CreateSphere(Renderer& renderer)
+{
+	CreatePrimitive(renderer, "Assets/Models/Primitives/sphere.fbx", "Sphere");
+}
+
+void Scene::CreateCylinder(Renderer& renderer)
+{
+	CreatePrimitive(renderer, "Assets/Models/Primitives/cylinder.fbx", "Cylinder");
+}
+
+void Scene::CreateCone(Renderer& renderer)
+{
+	CreatePrimitive(renderer, "Assets/Models/Primitives/cone.fbx", "Cone");
+}
+
+void Scene::CreatePlane(Renderer& renderer)
+{
+	CreatePrimitive(renderer, "Assets/Models/Primitives/plane.fbx", "Plane");
+}
+
+void Scene::LoadSkybox(Renderer& renderer)
+{
+	renderer.CreateSkybox();
+	renderer.CreateSkyboxDescriptors();
+	SetSkyboxDrawState(true);
+}
+
+void Scene::SetSkyboxDrawState(bool state)
+{
+	DrawSkybox = state;
 }
 
 
-
-std::vector<Entity>& Scene::GetEntities()
+std::vector<ECS::Entity>& Scene::GetEntities()
 {
 	return m_entities;
 }
