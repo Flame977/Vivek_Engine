@@ -24,6 +24,9 @@ void VulkanContext::InitVulkan()
 	//Render Pass
 	CreateRenderPass();
 
+	//Need a brand new render pass here for rendering shadows !
+
+
 	//Descriptors stuff
 	CreateDescriptorPool();
 

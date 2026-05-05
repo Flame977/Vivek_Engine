@@ -36,6 +36,8 @@ namespace VulkanUtils
 
 	VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t layerCount, VkImageViewType viewType);
 
+	VkSampler CreateSampler(VkDevice device, VkFilter filter, VkSamplerAddressMode addressMode, bool enableCompare, VkCompareOp compareOp);
+
 	void CreateBuffer(VkDevice device, VkPhysicalDevice physicalDevice, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
 	VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);

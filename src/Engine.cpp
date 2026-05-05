@@ -18,6 +18,7 @@ Engine::Engine()
 	// scene instance...
 	m_scene = std::make_unique<Scene>();
 	m_scene->LoadSkybox(*m_renderer);
+	m_scene->SetSkyboxDrawState(false);
 
 
 	Mesh* mesh = m_renderer->LoadMesh("Assets/Models/ak47.fbx");
@@ -27,7 +28,8 @@ Engine::Engine()
 	Material* defaultMat = m_renderer->LoadDefaultMaterial();
 
 
-	m_scene->CreateSphere(*m_renderer);
+	auto sphere = m_scene->CreateSphere(*m_renderer);
+	m_scene->SetPosition(sphere, { 3,0,0 });
 
 	// AK
 	auto e = m_scene->CreateEntity();
@@ -51,65 +53,18 @@ Engine::Engine()
 	m_scene->meshs[s] = ECS::MeshRenderer{ monkey };
 	m_scene->materials[s] = ECS::MaterialRenderer{ defaultMat };
 
+	auto plane = m_scene->CreatePlane(*m_renderer);
+	m_scene->SetPosition(plane, glm::vec3(0, -4, 0));
+	m_scene->SetRotation(plane, glm::vec3(-90, 0, 0));
+	m_scene->SetScale(plane, glm::vec3(10, 10, 10));
 
-	// Sun light
-	ECS::Entity sunlight = m_scene->CreateEntity();
+	m_scene->CreateDirectionalLight(*m_renderer);
 
-	m_scene->names[sunlight] = { "Sun_Light" };
 
-	m_scene->lights[sunlight] = {
-		ECS::LightType::Directional,
-		{1.0f, 1.0f, 1.0f}, // color
-		1.0f,               // intensity
-		{0.0f, -1.0f, 0.0f}, // direction
-		{0.0f, 0.0f, -3.0f} // position
-	};
+	//auto spot = m_scene->CreateSpotLight(*m_renderer);
+	//m_scene->SetRotation(spot, glm::vec3(-90, 0, 0));
 
-	/*
-	// Spot light
-	ECS::Entity spot = m_scene->CreateEntity();
-
-	m_scene->names[spot] = { "Spot_Light" };
-	//m_scene->transforms[spot] = ECS::Transform{ };
-	//need to make it so that the transforms position matches that of the spot light pos
-
-	m_scene->lights[spot] = {
-		ECS::LightType::Spot,
-		{1.0f, 0.0f, 0.0f}, // color
-		10.0f,               // intensity
-		{0.0f, -1.0f, 0.0f}, // direction
-
-		//replace with transform pos
-		{0.0f, 3.0f, -3.0f}, // position
-
-		10.0f,				// range
-		12.9f,				// inner
-		17.8f				// outer
-	};
-
-	*/
-
-	// Spot light
-	ECS::Entity point = m_scene->CreateEntity();
-
-	m_scene->names[point] = { "Point_Light" };
-	//m_scene->transforms[spot] = ECS::Transform{ };
-	//need to make it so that the transforms position matches that of the spot light pos
-
-	m_scene->lights[point] = {
-		ECS::LightType::Point,
-		{1.0f, 0.0f, 0.0f}, // color
-		10.0f,               // intensity
-		{0.0f, -1.0f, 0.0f}, // direction
-
-		//replace with transform pos
-		{0.0f, 3.0f, -3.0f}, // position
-
-		10.0f,				// range
-		12.9f,				// inner
-		17.8f				// outer
-	};
-
+	//m_scene->CreatePointLight(*m_renderer);
 
 
 
@@ -151,10 +106,7 @@ void Engine::Run()
 	m_renderer->WaitIdle();
 }
 
-//random variables for testing behaviour...
-float m_rotationAngle = 0.0f;
-float xPos = 6.0f;
-float y = 0.0f;
+
 
 void Engine::OnUpdate()
 {
@@ -167,46 +119,19 @@ void Engine::OnUpdate()
 
 	m_renderer->SetFPS(1 / dt);
 
-	// Increase rotation
-	m_rotationAngle += dt * 45.0f; // degrees/sec
+
+	//UPDATE LOGIC GOES HERE...!
 
 
-	/*
 
 
-	//creating objects at runtime...
-	if (m_window->IsKeyDown(GLFW_KEY_SPACE))
-	{
-		Mesh* akMesh = m_renderer->LoadMesh("Assets/Models/ak47.fbx");
-		Material* akMat = m_renderer->LoadMaterial("Assets/Textures/ak47_albedo.png");
-
-		auto e = m_scene->CreateEntity();
-		m_scene->names[e] = ECS::Name{ "ak_" };
-		m_scene->transforms[e] = ECS::Transform{
-		{xPos, 0, -3},
-		{-90, 0, 0},
-		{1, 1, 1} };
-		m_scene->meshs[e] = ECS::MeshRenderer{ akMesh };
-		m_scene->materials[e] = ECS::MaterialRenderer{ akMat };
-
-		xPos += 3;
-
-	}
-
-	//obj deletion code...
 	if (m_window->IsKeyDown(GLFW_KEY_DELETE))
 	{
-		const auto& entities = m_scene->GetEntities();
-
-		if (!entities.empty())
+		if (m_selectedEntity != (ECS::Entity)-1)
 		{
-			auto last = entities.back();
-			m_scene->DestroyEntity(last);
-			xPos -= 3;
+			m_scene->DestroyEntity(m_selectedEntity);
 		}
 	}
-
-	*/
 
 
 	m_renderer->DrawFrame(*m_camera, *m_scene);
@@ -337,10 +262,24 @@ float Engine::DrawMenuBar(Scene& scene)
 		{
 			ImGui::MenuItem("Show Skybox", nullptr, &scene.DrawSkybox);
 
+			if (ImGui::MenuItem("Create Directional Light"))
+			{
+				//add light...
+				scene.CreateDirectionalLight(*m_renderer);
+			}
+
+			if (ImGui::MenuItem("Create Entity"))
+			{
+				scene.CreateEmptyEntity("GameObject");
+			}
+
 			if (ImGui::MenuItem("Create Cube"))
 			{
-				scene.CreateCube(*m_renderer);
+				auto e = scene.CreateCube(*m_renderer);
+
 			}
+
+
 
 			ImGui::EndMenu();
 		}
@@ -457,11 +396,12 @@ void Engine::DrawInspector(const ImGuiViewport* vp, float menuHeight, Scene& sce
 
 		if (l.type == ECS::LightType::Directional)
 		{
-			ImGui::DragFloat3("Direction", glm::value_ptr(l.direction), 0.1f);
+			//auto rot = scene.transforms[m_selectedEntity].rotation;
+			//ImGui::DragFloat3("Direction", glm::value_ptr(l.direction), 0.1f);
 		}
 		else if (l.type == ECS::LightType::Point)
 		{
-			ImGui::DragFloat3("Position", glm::value_ptr(l.position), 0.1f);
+			//ImGui::DragFloat3("Position", glm::value_ptr(l.position), 0.1f);
 			//ImGui::DragFloat3("Direction", glm::value_ptr(l.direction), 0.1f);
 
 			ImGui::DragFloat("Range", &l.range, 0.1f);
@@ -469,11 +409,10 @@ void Engine::DrawInspector(const ImGuiViewport* vp, float menuHeight, Scene& sce
 		}
 		else if (l.type == ECS::LightType::Spot)
 		{
-			ImGui::DragFloat3("Position", glm::value_ptr(l.position), 0.1f);
-			ImGui::DragFloat3("Direction", glm::value_ptr(l.direction), 0.1f);
+			//ImGui::DragFloat3("Position", glm::value_ptr(l.position), 0.1f);
+			//ImGui::DragFloat3("Direction", glm::value_ptr(l.direction), 0.1f);
 
 			ImGui::DragFloat("Range", &l.range, 0.1f);
-
 
 			ImGui::DragFloat("InnerCone", &l.innerCone, 0.1f);
 			ImGui::DragFloat("OuterCone", &l.outerCone, 0.1f);

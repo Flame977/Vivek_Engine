@@ -81,6 +81,9 @@ private:
 	void CreateSkyboxPipeline();
 
 
+	void CreateShadowMap();
+
+
 	void CreateSkyboxGeometry();
 
 	void DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, const Scene& scene);
@@ -97,6 +100,15 @@ private:
 	//renderer owns pipelines from now on
 	VkPipelineLayout m_graphicsPipelineLayout;
 	VkPipeline m_graphicsPipeline;
+
+
+	//for shadows...
+	VkImage m_shadowMapImage;
+	VkDeviceMemory m_shadowMapImageMemory;
+
+	VkImageView m_shadowMapImageView;
+	VkSampler m_shadowMapImageSampler;
+
 
 	//vulkan specific stuff for making the skybox...
 	VulkanSkybox m_skybox;

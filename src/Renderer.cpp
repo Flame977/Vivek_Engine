@@ -27,6 +27,8 @@ void Renderer::InitRenderer()
 
 	CreateSkyboxDescriptors();
 	*/
+	
+	CreateShadowMap();
 
 	CreatePipelines();
 
@@ -72,21 +74,35 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 		// w component of color is the intensity of the light color...
 		gpuLight.color = glm::vec4(light.color, light.intensity);
 
+		//incase we dont have a transform yet...
+		if (!scene.transforms.count(entity))
+			continue;
+
+		const auto& lightTransform = scene.transforms.at(entity);
+
 
 		if (light.type == ECS::LightType::Directional)
 		{
-			gpuLight.direction = glm::vec4(light.direction, 0.0f);
+			glm::quat q = glm::quat(glm::radians(lightTransform.rotation));
+			glm::vec3 dir = q * glm::vec3(0.0f, 0.0f, -1.0f);
+
+			gpuLight.position = glm::vec4(lightTransform.position, 0.0f);
+			gpuLight.direction = glm::vec4(glm::normalize(dir), 0.0f);
 			gpuLight.position.w = 0.0f;
+
 		}
 		else if (light.type == ECS::LightType::Point)
 		{
-			gpuLight.position = glm::vec4(light.position, 1.0f);
+			gpuLight.position = glm::vec4(lightTransform.position, 1.0f);
 			gpuLight.params.x = light.range;
 		}
 		else if (light.type == ECS::LightType::Spot)
 		{
-			gpuLight.position = glm::vec4(light.position, 2.0f);
-			gpuLight.direction = glm::vec4(light.direction, 0.0f);
+			glm::quat q = glm::quat(glm::radians(lightTransform.rotation));
+			glm::vec3 dir = q * glm::vec3(0.0f, 0.0f, -1.0f);
+
+			gpuLight.position = glm::vec4(lightTransform.position, 2.0f);
+			gpuLight.direction = glm::vec4(dir, 0.0f);
 
 			// IMPORTANT: store COSINES
 			gpuLight.params.x = light.range;
@@ -942,6 +958,47 @@ void Renderer::CreateSkybox()
 	CreateSkyboxGeometry();
 }
 
+//dont need to do this we already do this in vulkan...
+void Renderer::CreateShadowMap()
+{
+	auto device = m_vulkan.GetDevice();
+	auto physicalDevice = m_vulkan.GetPhysicalDevice();
+
+	VulkanUtils::CreateImage(
+		device,
+		physicalDevice,
+		1024,
+		1024,
+		1,
+		VK_FORMAT_D32_SFLOAT,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		m_shadowMapImage,
+		m_shadowMapImageMemory,
+		0);
+
+	m_shadowMapImageView = VulkanUtils::CreateImageView(
+		device,
+		m_shadowMapImage,
+		VK_FORMAT_D32_SFLOAT,
+		VK_IMAGE_ASPECT_DEPTH_BIT,
+		1,
+		VK_IMAGE_VIEW_TYPE_2D);
+
+	m_shadowMapImageSampler = VulkanUtils::CreateSampler(
+		device,
+		VK_FILTER_LINEAR,
+		VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+		VK_TRUE,
+		VK_COMPARE_OP_LESS);
+
+	//VulkanUtils::TransitionImageLayout()
+
+	Log("Renderer :: Successfully created Shadow Map!");
+
+
+}
 
 void Renderer::CreateSkyboxGeometry()
 {
