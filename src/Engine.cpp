@@ -58,7 +58,9 @@ Engine::Engine()
 	m_scene->SetRotation(plane, glm::vec3(-90, 0, 0));
 	m_scene->SetScale(plane, glm::vec3(10, 10, 10));
 
-	m_scene->CreateDirectionalLight(*m_renderer);
+	auto sun = m_scene->CreateDirectionalLight(*m_renderer);
+	m_scene->SetRotation(sun, glm::vec3(-20, 90, 0));
+
 
 
 	//auto spot = m_scene->CreateSpotLight(*m_renderer);

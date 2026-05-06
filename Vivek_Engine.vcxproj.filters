@@ -212,5 +212,7 @@
     <None Include="src\shaders\Shader.frag" />
     <None Include="src\shaders\Skybox.vert" />
     <None Include="src\shaders\Skybox.frag" />
+    <None Include="src\shaders\Shadows.vert" />
+    <None Include="src\shaders\Shadows.frag" />
   </ItemGroup>
 </Project>

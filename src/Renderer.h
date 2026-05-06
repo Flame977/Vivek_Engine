@@ -81,12 +81,35 @@ private:
 	void CreateSkyboxPipeline();
 
 
+
 	void CreateShadowMap();
+
+	void CreateShadowsRenderPass();
+
+	void CreateShadowFrameBuffer();
+
+	void CreateShadowPipeline();
+
+	void CreateShadowResources();
+
+	void CreateShadowDescriptors();
+
+	void BeginShadowRenderPass(VkCommandBuffer cmd);
+
+	void UpdateShadowUniforms(ShadowUBO& shadowData);
+
+	ImTextureID GetShadowDebugTexture() const
+	{
+		return m_shadowDebugTexture;
+	}
+
 
 
 	void CreateSkyboxGeometry();
 
 	void DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, const Scene& scene);
+
+	void DrawShadowObjects(VkCommandBuffer cmd, const Scene& scene);
 
 	void DrawSkybox(VkCommandBuffer cmd, const FrameResources& frame, const Scene& scene);
 
@@ -108,6 +131,22 @@ private:
 
 	VkImageView m_shadowMapImageView;
 	VkSampler m_shadowMapImageSampler;
+
+	VkRenderPass m_shadowRenderPass;
+	VkFramebuffer m_shadowFrameBuffer;
+
+	VkDescriptorSetLayout m_shadowDescriptorSetLayout;    // set 0
+	VkDescriptorSet m_shadowDescriptorSet;
+
+	VkPipelineLayout m_shadowPipelineLayout;
+	VkPipeline m_shadowPipeline;
+
+	VkBuffer m_shadowUniformBuffer;
+	VkDeviceMemory m_shadowUniformMemory;
+
+	//will use later...
+	ImTextureID m_shadowDebugTexture;
+
 
 
 	//vulkan specific stuff for making the skybox...

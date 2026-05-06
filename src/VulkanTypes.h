@@ -45,7 +45,7 @@ struct alignas(16) Light
 	glm::vec4 color;
 	glm::vec4 params;
 };
-	
+
 struct alignas(16) CameraUBO
 {
 	glm::mat4 view;
@@ -54,6 +54,12 @@ struct alignas(16) CameraUBO
 	glm::ivec4 lightInfo;
 
 	Light lights[MAX_LIGHTS];
+};
+
+// only for shadows shader...
+struct ShadowUBO
+{
+	glm::mat4 lightSpace;
 };
 
 
