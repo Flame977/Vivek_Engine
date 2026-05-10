@@ -232,12 +232,27 @@ void VulkanContext::EndFrame(uint32_t& imageIndex, FrameResources& frame)
 		throw std::runtime_error("Failed to present swapchain image");
 }
 
-void VulkanContext::BeginRenderPass(VkCommandBuffer cmd, uint32_t imageIndex)
+void VulkanContext::BeginCommandBuffer(VkCommandBuffer cmd)
 {
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-	vkBeginCommandBuffer(cmd, &beginInfo);
+	if (vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to begin command buffer!");
+	}
+}
+
+void VulkanContext::EndCommandBuffer(VkCommandBuffer cmd)
+{
+	if (vkEndCommandBuffer(cmd) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to record command buffer");
+	}
+}
+
+void VulkanContext::BeginRenderPass(VkCommandBuffer cmd, uint32_t imageIndex)
+{
 
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -259,9 +274,6 @@ void VulkanContext::BeginRenderPass(VkCommandBuffer cmd, uint32_t imageIndex)
 void VulkanContext::EndRenderPass(VkCommandBuffer cmd)
 {
 	vkCmdEndRenderPass(cmd);
-
-	if (vkEndCommandBuffer(cmd) != VK_SUCCESS)
-		throw std::runtime_error("Failed to record command buffer");
 }
 
 void VulkanContext::WaitIdle() const

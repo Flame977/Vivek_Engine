@@ -9,6 +9,8 @@ layout(location = 0) out vec3 fragPos;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec2 fragUV;
 
+layout(location = 3) out vec4 fragLightSpace;   
+
 
 layout(push_constant) uniform PushConstant
 {
@@ -31,6 +33,8 @@ layout(set = 0, binding = 0) uniform CameraUBO
     mat4 view;
     mat4 proj;
 
+    mat4 lightSpace;
+
     ivec4 lightInfo;
 
     Light lights[MAX_LIGHTS];
@@ -49,6 +53,8 @@ void main()
     fragNormal = normalize(normalMatrix * inNormal);
 
     fragUV = inUV;
+
+    fragLightSpace = camera.lightSpace * worldPos; 
     
     gl_Position = camera.proj * camera.view * worldPos;
 }

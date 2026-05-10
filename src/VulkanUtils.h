@@ -44,6 +44,8 @@ namespace VulkanUtils
 
 	VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice);
 
+	bool HasStencilComponent(VkFormat format);
+
 	void TransitionImageLayout(VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount);
 
 	std::vector<VkBufferImageCopy> Create2DRegion(uint32_t width, uint32_t height);

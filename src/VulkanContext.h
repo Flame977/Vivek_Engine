@@ -65,6 +65,12 @@ public:
 
 	void EndFrame(uint32_t& imageIndex, FrameResources& frame);
 
+	
+	void BeginCommandBuffer(VkCommandBuffer cmd);
+
+	void EndCommandBuffer(VkCommandBuffer cmd);
+
+
 	void BeginRenderPass(VkCommandBuffer cmd, uint32_t imageIndex);
 
 	void EndRenderPass(VkCommandBuffer cmd);

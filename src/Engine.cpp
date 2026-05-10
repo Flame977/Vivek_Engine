@@ -13,7 +13,8 @@ Engine::Engine()
 	m_renderer = std::make_unique<Renderer>(*m_vulkan);
 
 	float aspect = m_vulkan->GetAspectRatio();
-	m_camera = std::make_unique<Camera>(60, aspect, 0.1f, 100);
+	m_camera = std::make_unique<Camera>(60, aspect, 0.01f, 1000);
+
 
 	// scene instance...
 	m_scene = std::make_unique<Scene>();
@@ -56,10 +57,10 @@ Engine::Engine()
 	auto plane = m_scene->CreatePlane(*m_renderer);
 	m_scene->SetPosition(plane, glm::vec3(0, -4, 0));
 	m_scene->SetRotation(plane, glm::vec3(-90, 0, 0));
-	m_scene->SetScale(plane, glm::vec3(10, 10, 10));
+	m_scene->SetScale(plane, glm::vec3(20, 20, 10));
 
 	auto sun = m_scene->CreateDirectionalLight(*m_renderer);
-	m_scene->SetRotation(sun, glm::vec3(-20, 90, 0));
+	m_scene->SetRotation(sun, glm::vec3(-20, 0, 0));
 
 
 
@@ -264,9 +265,21 @@ float Engine::DrawMenuBar(Scene& scene)
 		{
 			ImGui::MenuItem("Show Skybox", nullptr, &scene.DrawSkybox);
 
+
+			if (ImGui::MenuItem("Perspective Camera"))
+			{
+				m_camera->SetProjectionType(ProjectionType::Perspective);
+			}
+
+			if (ImGui::MenuItem("Orthographic Camera"))
+			{
+				m_camera->SetProjectionType(ProjectionType::Orthographic);
+				//m_camera->SetOrthographicSize(200);
+			}
+
+
 			if (ImGui::MenuItem("Create Directional Light"))
 			{
-				//add light...
 				scene.CreateDirectionalLight(*m_renderer);
 			}
 
@@ -294,13 +307,14 @@ float Engine::DrawMenuBar(Scene& scene)
 	return ImGui::GetFrameHeight();
 }
 
+
 void Engine::DrawHierarchy(const ImGuiViewport* vp, float menuHeight, Scene& scene)
 {
 	ImGui::SetNextWindowPos(ImVec2(
 		vp->Pos.x,
 		vp->Pos.y + menuHeight));
 
-	ImGui::SetNextWindowSize(ImVec2(300, vp->Size.y - menuHeight));
+	ImGui::SetNextWindowSize(ImVec2(300, vp->Size.y - menuHeight - 300));
 
 	ImGui::Begin("Hierarchy");
 
@@ -324,6 +338,26 @@ void Engine::DrawHierarchy(const ImGuiViewport* vp, float menuHeight, Scene& sce
 	}
 
 	ImGui::End();
+
+
+	// shadow map debug window...
+
+
+
+	ImGui::SetNextWindowSize(ImVec2(400, 400));
+
+	//ImGui::Begin("Shadow Map");
+
+	/*ImGui::Image(
+		m_renderer->GetShadowDebugTexture(),
+		ImVec2(1024, 1024),
+		ImVec2(0, 1),
+		ImVec2(1, 0)
+	);*/
+
+	//ImGui::End();
+
+
 }
 
 

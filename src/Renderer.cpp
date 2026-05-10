@@ -5,6 +5,7 @@
 #include "Material.h"
 #include "Scene.h"
 
+
 Renderer::Renderer(VulkanContext& vulkan) :m_vulkan(vulkan)
 {
 	InitRenderer();
@@ -19,25 +20,12 @@ void Renderer::InitRenderer()
 {
 	CreateDescriptorLayouts();
 
+	m_shadowPass.Initialize(m_vulkan);
+
 	CreateFrameDescriptors();
 
-	CreateShadowResources();
-
-	CreateShadowDescriptors();
-
-
-
-
-	CreateShadowMap();
-
-	CreateShadowsRenderPass();
-
-	CreateShadowFrameBuffer();
-	
-
-
-
 	CreatePipelines();
+
 
 }
 
@@ -65,7 +53,11 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 	camData.view = camera.GetView();
 	camData.proj = camera.GetProjection();
 
-	ShadowUBO shadowData{};
+	camData.lightSpcae = m_shadowPass.GetLightSpace();
+
+
+	//ShadowUBO shadowData{};
+	//shadowData.lightSpace = m_shadowPass.GetLightSpace();
 
 
 	// -----------------------------
@@ -99,26 +91,47 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 			gpuLight.direction = glm::vec4(glm::normalize(dir), 0.0f);
 			gpuLight.position.w = 0.0f;
 
-			// filling in the shadow data...
+			// ----------------------------------
+			// SHADOW LIGHT SPACE
+			// ----------------------------------
 
-			glm::vec3 lightPos = -dir * 20.0f;
+			glm::vec3 lightDir =
+				glm::normalize(dir);
 
-			glm::mat4 lightView = glm::lookAt(
-				lightPos,
-				glm::vec3(0.0f),
-				glm::vec3(0, 1, 0)
-			);
+			// Center of scene for now
+			glm::vec3 target = camera.GetPosition() + camera.GetFront() * 10.0f;
 
-			glm::mat4 lightProj = glm::ortho(
-				-20.0f, 20.0f,
-				-20.0f, 20.0f,
-				0.1f, 50.0f
-			);
+			// Pull light backwards along direction
+			glm::vec3 lightPos =
+				target - lightDir * 60.0f;
 
+			// Light View
+			glm::mat4 lightView =
+				glm::lookAt(
+					lightPos,
+					target,
+					glm::vec3(0, 1, 0)
+				);
+
+			// Light Projection
+			glm::mat4 lightProj =
+				glm::orthoRH_ZO(
+					-30.0f,
+					30.0f,
+					-30.0f,
+					30.0f,
+					0.1f,
+					100.0f
+				);
+
+			// Vulkan correction
 			lightProj[1][1] *= -1.0f;
 
-			glm::mat4 lightSpace = lightProj * lightView;
-			shadowData.lightSpace = lightSpace;
+			// Final light-space matrix
+			camData.lightSpcae = lightProj * lightView;
+
+			// Give SAME matrix to shadow pass
+			m_shadowPass.SetLightSpace(camData.lightSpcae);
 
 
 		}
@@ -151,7 +164,6 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 
 
 	m_vulkan.UpdateUniforms(camData);
-	UpdateShadowUniforms(shadowData);
 
 
 	// OG LOGIC...
@@ -289,12 +301,11 @@ void Renderer::RecordCommands(
 	const FrameResources& frame,
 	const Scene& scene)
 {
-	// shadow stuff 
-	BeginShadowRenderPass(cmd);
+	m_vulkan.BeginCommandBuffer(cmd);
 
-	DrawShadowObjects(cmd, scene);
 
-	m_vulkan.EndRenderPass(cmd);
+	// shadow render pass...
+	m_shadowPass.Render(cmd, scene);
 
 
 	// Begin render pass
@@ -308,11 +319,17 @@ void Renderer::RecordCommands(
 
 	// End render pass
 	m_vulkan.EndRenderPass(cmd);
+
+
+
+	m_vulkan.EndCommandBuffer(cmd);
 }
 
 
 void Renderer::CreateDescriptorLayouts()
 {
+
+	/*
 	// SET 0 (Frame)
 	VkDescriptorSetLayoutBinding frameBinding{};
 	frameBinding.binding = 0;
@@ -322,6 +339,36 @@ void Renderer::CreateDescriptorLayouts()
 
 	m_frameDescriptorSetLayout =
 		m_vulkan.CreateDescriptorSetLayout({ frameBinding });
+	*/
+	std::vector<VkDescriptorSetLayoutBinding>
+		frameBindings;
+
+	// CAMERA UBO
+	VkDescriptorSetLayoutBinding frameBinding{};
+	frameBinding.binding = 0;
+	frameBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	frameBinding.descriptorCount = 1;
+	frameBinding.stageFlags =
+		VK_SHADER_STAGE_VERTEX_BIT |
+		VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	frameBindings.push_back(frameBinding);
+
+	// SHADOW MAP
+	VkDescriptorSetLayoutBinding shadowBinding{};
+	shadowBinding.binding = 1;
+	shadowBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	shadowBinding.descriptorCount = 1;
+	shadowBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	frameBindings.push_back(shadowBinding);
+
+	m_frameDescriptorSetLayout = m_vulkan.CreateDescriptorSetLayout(
+		frameBindings
+	);
+
+
+
 
 
 	// SET 1 (Material)
@@ -349,17 +396,6 @@ void Renderer::CreateDescriptorLayouts()
 
 	m_skybox.descriptorSetLayout =
 		m_vulkan.CreateDescriptorSetLayout(skyboxBindings);
-
-	// SET 0 (Shadows)
-	VkDescriptorSetLayoutBinding shadowBinding{};
-	shadowBinding.binding = 0;
-	shadowBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	shadowBinding.descriptorCount = 1;
-	shadowBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	shadowBinding.pImmutableSamplers = nullptr;
-
-	m_shadowDescriptorSetLayout =
-		m_vulkan.CreateDescriptorSetLayout({ shadowBinding });
 
 
 }
@@ -562,6 +598,49 @@ void Renderer::CreateFrameDescriptors()
 			frame.uniformBuffer,
 			sizeof(CameraUBO)
 		);
+
+		// ----------------------------
+	 // Binding 1 : Shadow Map
+	 // ----------------------------
+
+		VkDescriptorImageInfo shadowInfo{};
+		shadowInfo.imageLayout =
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+		shadowInfo.imageView =
+			m_shadowPass.GetShadowImageView();
+
+		shadowInfo.sampler =
+			m_shadowPass.GetShadowSampler();
+
+		VkWriteDescriptorSet shadowWrite{};
+		shadowWrite.sType =
+			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+
+		shadowWrite.dstSet =
+			frame.globalDescriptorSet;
+
+		shadowWrite.dstBinding = 1;
+
+		shadowWrite.dstArrayElement = 0;
+
+		shadowWrite.descriptorType =
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+		shadowWrite.descriptorCount = 1;
+
+		shadowWrite.pImageInfo =
+			&shadowInfo;
+
+		vkUpdateDescriptorSets(
+			m_vulkan.GetDevice(),
+			1,
+			&shadowWrite,
+			0,
+			nullptr
+		);
+
+
 	}
 
 	std::cout << "Renderer :: Frame descriptors created and descriptors Update called!" << std::endl;
@@ -594,82 +673,8 @@ void Renderer::Cleanup()
 {
 	VkDevice device = m_vulkan.GetDevice();
 
-	// shadow map cleanup...
 
-	if (m_shadowUniformBuffer != VK_NULL_HANDLE)
-	{
-		vkDestroyBuffer(device, m_shadowUniformBuffer, nullptr);
-		m_shadowUniformBuffer = VK_NULL_HANDLE;
-	}
-
-	if (m_shadowUniformMemory != VK_NULL_HANDLE)
-	{
-		vkFreeMemory(device, m_shadowUniformMemory, nullptr);
-		m_shadowUniformMemory = VK_NULL_HANDLE;
-	}
-
-
-	if (m_shadowDescriptorSetLayout != VK_NULL_HANDLE)
-	{
-		vkDestroyDescriptorSetLayout(device, m_shadowDescriptorSetLayout, nullptr);
-		m_shadowDescriptorSetLayout = VK_NULL_HANDLE;
-	}
-
-	if (m_shadowPipelineLayout != VK_NULL_HANDLE)
-	{
-		vkDestroyPipelineLayout(device, m_shadowPipelineLayout, nullptr);
-		m_shadowPipelineLayout = VK_NULL_HANDLE;
-	}
-
-	if (m_shadowPipeline != VK_NULL_HANDLE)
-	{
-		vkDestroyPipeline(device, m_shadowPipeline, nullptr);
-		m_shadowPipeline = VK_NULL_HANDLE;
-	}
-
-
-	// render pass
-	if (m_shadowRenderPass != VK_NULL_HANDLE)
-	{
-		vkDestroyRenderPass(device, m_shadowRenderPass, nullptr);
-		m_shadowRenderPass = VK_NULL_HANDLE;
-	}
-	// frame buffer
-	if (m_shadowFrameBuffer != VK_NULL_HANDLE)
-	{
-		vkDestroyFramebuffer(device, m_shadowFrameBuffer, nullptr);
-		m_shadowFrameBuffer = VK_NULL_HANDLE;
-	}
-
-	// Image view
-	if (m_shadowMapImageView != VK_NULL_HANDLE)
-	{
-		vkDestroyImageView(device, m_shadowMapImageView, nullptr);
-		m_shadowMapImageView = VK_NULL_HANDLE;
-	}
-
-	// Sampler
-	if (m_shadowMapImageSampler != VK_NULL_HANDLE)
-	{
-		vkDestroySampler(device, m_shadowMapImageSampler, nullptr);
-		m_shadowMapImageSampler = VK_NULL_HANDLE;
-	}
-
-	// Image
-	if (m_shadowMapImage != VK_NULL_HANDLE)
-	{
-		vkDestroyImage(device, m_shadowMapImage, nullptr);
-		m_shadowMapImage = VK_NULL_HANDLE;
-	}
-
-	// Memory
-	if (m_shadowMapImageMemory != VK_NULL_HANDLE)
-	{
-		vkFreeMemory(device, m_shadowMapImageMemory, nullptr);
-		m_shadowMapImageMemory = VK_NULL_HANDLE;
-	}
-
-
+	m_shadowPass.Cleanup(device);
 
 
 	for (auto& mesh : m_meshes)
@@ -710,7 +715,6 @@ void Renderer::CreatePipelines()
 {
 	CreateSkyboxPipeline();
 	CreateGraphicsPipeline();
-	CreateShadowPipeline();
 }
 
 void Renderer::CleanupPipelines(VkDevice device)
@@ -721,8 +725,6 @@ void Renderer::CleanupPipelines(VkDevice device)
 	vkDestroyPipeline(device, m_skybox.pipeline, nullptr);
 	vkDestroyPipelineLayout(device, m_skybox.pipelineLayout, nullptr);
 
-	vkDestroyPipeline(device, m_shadowPipeline, nullptr);
-	vkDestroyPipelineLayout(device, m_shadowPipelineLayout, nullptr);
 
 }
 
@@ -1093,575 +1095,6 @@ void Renderer::CreateSkybox()
 	CreateSkyboxGeometry();
 }
 
-void Renderer::CreateShadowMap()
-{
-	auto device = m_vulkan.GetDevice();
-	auto physicalDevice = m_vulkan.GetPhysicalDevice();
-
-	VulkanUtils::CreateImage(
-		device,
-		physicalDevice,
-		1024,
-		1024,
-		1,
-		VK_FORMAT_D32_SFLOAT,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		m_shadowMapImage,
-		m_shadowMapImageMemory,
-		0);
-
-	m_shadowMapImageView = VulkanUtils::CreateImageView(
-		device,
-		m_shadowMapImage,
-		VK_FORMAT_D32_SFLOAT,
-		VK_IMAGE_ASPECT_DEPTH_BIT,
-		1,
-		VK_IMAGE_VIEW_TYPE_2D);
-
-	m_shadowMapImageSampler = VulkanUtils::CreateSampler(
-		device,
-		VK_FILTER_LINEAR,
-		VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-		VK_TRUE,
-		VK_COMPARE_OP_LESS);
-
-	//VulkanUtils::TransitionImageLayout()
-
-	Log("Renderer :: Successfully created Shadow Map!");
-
-}
-
-void Renderer::CreateShadowsRenderPass()
-{
-
-	VkAttachmentDescription shadowAttachment{};
-
-	shadowAttachment.format = VK_FORMAT_D32_SFLOAT;
-	shadowAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-
-	shadowAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	shadowAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-
-	shadowAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	shadowAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-
-	shadowAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	shadowAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-
-	VkAttachmentReference shadowRef{};
-
-	shadowRef.attachment = 0;
-	shadowRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-
-	VkSubpassDescription subpass{};
-	subpass.pipelineBindPoint =
-		VK_PIPELINE_BIND_POINT_GRAPHICS;
-
-	// No color attachment!
-	subpass.colorAttachmentCount = 0;
-	subpass.pColorAttachments = nullptr;
-
-	// Only depth
-	subpass.pDepthStencilAttachment = &shadowRef;
-
-
-
-	VkSubpassDependency dependency{};
-
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-
-	dependency.srcStageMask =
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-
-	dependency.dstStageMask =
-		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-
-	dependency.srcAccessMask =
-		VK_ACCESS_SHADER_READ_BIT;
-
-	dependency.dstAccessMask =
-		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-	dependency.dependencyFlags = 0;
-
-
-	VkRenderPassCreateInfo renderPassInfo{};
-	renderPassInfo.sType =
-		VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-
-	renderPassInfo.attachmentCount = 1;
-	renderPassInfo.pAttachments = &shadowAttachment;
-
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
-
-	renderPassInfo.dependencyCount = 1;
-	renderPassInfo.pDependencies = &dependency;
-
-	auto device = m_vulkan.GetDevice();
-
-	if (vkCreateRenderPass(
-		device,
-		&renderPassInfo,
-		nullptr,
-		&m_shadowRenderPass) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create shadow render pass!");
-	}
-
-	Log("Renderer :: Successfully created Shadow RenderPass!");
-}
-
-void Renderer::CreateShadowFrameBuffer()
-{
-	VkImageView attachments[] =
-	{
-		m_shadowMapImageView
-	};
-
-	VkFramebufferCreateInfo framebufferInfo{};
-	framebufferInfo.sType =
-		VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-
-	framebufferInfo.renderPass = m_shadowRenderPass;
-
-	framebufferInfo.attachmentCount = 1;
-	framebufferInfo.pAttachments = attachments;
-
-	framebufferInfo.width = 1024;
-	framebufferInfo.height = 1024;
-
-	framebufferInfo.layers = 1;
-
-	auto device = m_vulkan.GetDevice();
-
-	if (vkCreateFramebuffer(
-		device,
-		&framebufferInfo,
-		nullptr,
-		&m_shadowFrameBuffer) != VK_SUCCESS)
-	{
-		throw std::runtime_error(
-			"Failed to create shadow framebuffer!");
-	}
-
-	Log("Renderer :: Successfully created Shadow Frame buffer!");
-}
-
-
-void Renderer::CreateShadowPipeline()
-{
-	auto device = m_vulkan.GetDevice();
-	// -----------------------------
-	// Load shaders
-	// -----------------------------
-	auto vertCode = VulkanUtils::ReadFile("src/shaders/Shadows.vert.spv");
-	auto fragCode = VulkanUtils::ReadFile("src/shaders/Shadows.frag.spv");
-
-	VkShaderModule vertShaderModule = VulkanUtils::CreateShaderModule(device, vertCode);
-
-	VkShaderModule fragShaderModule = VulkanUtils::CreateShaderModule(device, fragCode);
-
-	VkPipelineShaderStageCreateInfo vertStage{};
-	vertStage.sType =
-		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-
-	vertStage.stage = VK_SHADER_STAGE_VERTEX_BIT;
-	vertStage.module = vertShaderModule;
-	vertStage.pName = "main";
-
-	VkPipelineShaderStageCreateInfo fragStage{};
-	fragStage.sType =
-		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-
-	fragStage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	fragStage.module = fragShaderModule;
-	fragStage.pName = "main";
-
-	VkPipelineShaderStageCreateInfo shaderStages[] =
-	{
-		vertStage,
-		fragStage
-	};
-
-	// -----------------------------
-	// Vertex Input
-	// -----------------------------
-	auto bindingDescription = Vertex::GetBindingDescription();
-	auto attributeDescriptions = Vertex::GetAttributeDescriptions();
-
-	VkPipelineVertexInputStateCreateInfo vertexInput{};
-	vertexInput.sType =
-		VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
-	vertexInput.vertexBindingDescriptionCount = 1;
-	vertexInput.pVertexBindingDescriptions = &bindingDescription;
-
-	vertexInput.vertexAttributeDescriptionCount =
-		static_cast<uint32_t>(attributeDescriptions.size());
-
-	vertexInput.pVertexAttributeDescriptions =
-		attributeDescriptions.data();
-
-	// -----------------------------
-	// Input Assembly
-	// -----------------------------
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-	inputAssembly.sType =
-		VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-
-	inputAssembly.topology =
-		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
-	// -----------------------------
-	// Viewport / Scissor
-	// -----------------------------
-	VkViewport viewport{};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-
-	viewport.width = 1024;
-	viewport.height = 1024;
-
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-
-	VkRect2D scissor{};
-	scissor.offset = { 0, 0 };
-	scissor.extent =
-	{
-		1024,
-		1024
-	};
-
-	VkPipelineViewportStateCreateInfo viewportState{};
-	viewportState.sType =
-		VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-
-	viewportState.viewportCount = 1;
-	viewportState.pViewports = &viewport;
-
-	viewportState.scissorCount = 1;
-	viewportState.pScissors = &scissor;
-
-	// -----------------------------
-	// Rasterizer
-	// -----------------------------
-	VkPipelineRasterizationStateCreateInfo rasterizer{};
-	rasterizer.sType =
-		VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-
-	rasterizer.depthClampEnable = VK_FALSE;
-	rasterizer.rasterizerDiscardEnable = VK_FALSE;
-
-	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-
-	rasterizer.lineWidth = 1.0f;
-
-	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.frontFace =
-		VK_FRONT_FACE_COUNTER_CLOCKWISE;
-
-	// IMPORTANT FOR SHADOWS
-	rasterizer.depthBiasEnable = VK_TRUE;
-	rasterizer.depthBiasConstantFactor = 1.25f;
-	rasterizer.depthBiasSlopeFactor = 1.75f;
-
-	// -----------------------------
-	// Multisampling
-	// -----------------------------
-	VkPipelineMultisampleStateCreateInfo multisampling{};
-	multisampling.sType =
-		VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-
-	multisampling.rasterizationSamples =
-		VK_SAMPLE_COUNT_1_BIT;
-
-	// -----------------------------
-	// Depth Stencil
-	// -----------------------------
-	VkPipelineDepthStencilStateCreateInfo depthStencil{};
-	depthStencil.sType =
-		VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-
-	depthStencil.depthTestEnable = VK_TRUE;
-	depthStencil.depthWriteEnable = VK_TRUE;
-
-	depthStencil.depthCompareOp =
-		VK_COMPARE_OP_LESS;
-
-	depthStencil.depthBoundsTestEnable = VK_FALSE;
-	depthStencil.stencilTestEnable = VK_FALSE;
-
-	// -----------------------------
-	// NO COLOR BLENDING
-	// -----------------------------
-	VkPipelineColorBlendStateCreateInfo colorBlending{};
-	colorBlending.sType =
-		VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-
-	colorBlending.attachmentCount = 0;
-	colorBlending.pAttachments = nullptr;
-
-	// -----------------------------
-	// Push Constant
-	// -----------------------------
-	VkPushConstantRange pushRange{};
-	pushRange.stageFlags =
-		VK_SHADER_STAGE_VERTEX_BIT;
-
-	pushRange.offset = 0;
-	pushRange.size = sizeof(glm::mat4);
-
-	// -----------------------------
-	// Pipeline Layout
-	// -----------------------------
-	VkPipelineLayoutCreateInfo layoutInfo{};
-	layoutInfo.sType =
-		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-
-	layoutInfo.setLayoutCount = 1;
-	layoutInfo.pSetLayouts =
-		&m_shadowDescriptorSetLayout;
-
-	layoutInfo.pushConstantRangeCount = 1;
-	layoutInfo.pPushConstantRanges = &pushRange;
-
-	if (vkCreatePipelineLayout(
-		device,
-		&layoutInfo,
-		nullptr,
-		&m_shadowPipelineLayout) != VK_SUCCESS)
-	{
-		throw std::runtime_error(
-			"Failed to create shadow pipeline layout!");
-	}
-
-	// -----------------------------
-	// Pipeline Create Info
-	// -----------------------------
-	VkGraphicsPipelineCreateInfo pipelineInfo{};
-	pipelineInfo.sType =
-		VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-
-	pipelineInfo.stageCount = 2;
-	pipelineInfo.pStages = shaderStages;
-
-	pipelineInfo.pVertexInputState = &vertexInput;
-	pipelineInfo.pInputAssemblyState = &inputAssembly;
-
-	pipelineInfo.pViewportState = &viewportState;
-	pipelineInfo.pRasterizationState = &rasterizer;
-
-	pipelineInfo.pMultisampleState = &multisampling;
-	pipelineInfo.pDepthStencilState = &depthStencil;
-
-	pipelineInfo.pColorBlendState = &colorBlending;
-
-	pipelineInfo.layout = m_shadowPipelineLayout;
-
-	pipelineInfo.renderPass = m_shadowRenderPass;
-	pipelineInfo.subpass = 0;
-
-	if (vkCreateGraphicsPipelines(
-		device,
-		VK_NULL_HANDLE,
-		1,
-		&pipelineInfo,
-		nullptr,
-		&m_shadowPipeline) != VK_SUCCESS)
-	{
-		throw std::runtime_error(
-			"Failed to create shadow pipeline!");
-	}
-
-	// -----------------------------
-	// Cleanup
-	// -----------------------------
-	vkDestroyShaderModule(
-		device,
-		vertShaderModule,
-		nullptr);
-
-	vkDestroyShaderModule(
-		device,
-		fragShaderModule,
-		nullptr);
-
-
-	Log("Renderer :: Successfully created Shadow Pipeline!");
-
-}
-
-void Renderer::CreateShadowResources()
-{
-	auto device = m_vulkan.GetDevice();
-	auto physicalDevice = m_vulkan.GetPhysicalDevice();
-
-	VulkanUtils::CreateBuffer(
-		device,
-		physicalDevice,
-		sizeof(CameraUBO),
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		m_shadowUniformBuffer,
-		m_shadowUniformMemory
-	);
-
-	Log("Renderer :: Successfully created Shadow Resources!");
-}
-
-
-void Renderer::CreateShadowDescriptors()
-{
-	auto descriptorManager = m_vulkan.GetDescriptorManager();
-
-	// Allocate descriptor set (same as before)
-	m_shadowDescriptorSet = descriptorManager.AllocateDescriptorSet(m_shadowDescriptorSetLayout);
-
-	// Update UBO 
-	descriptorManager.UpdateBuffer(
-		m_shadowDescriptorSet,
-		0, // binding
-		m_shadowUniformBuffer,
-		sizeof(ShadowUBO)
-	);
-
-	Log("Renderer :: Successfully created Shadow Descriptors!");
-
-}
-
-void Renderer::BeginShadowRenderPass(VkCommandBuffer cmd)
-{
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-	vkBeginCommandBuffer(cmd, &beginInfo);
-
-	// -----------------------------
-	// Clear depth
-	// -----------------------------
-	VkClearValue clearValue{};
-	clearValue.depthStencil = { 1.0f, 0 };
-
-	// -----------------------------
-	// Begin render pass info
-	// -----------------------------
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-
-	renderPassInfo.renderPass = m_shadowRenderPass;
-
-	renderPassInfo.framebuffer = m_shadowFrameBuffer;
-
-	renderPassInfo.renderArea.offset = { 0, 0 };
-
-	renderPassInfo.renderArea.extent =
-	{
-		1024,
-		1024
-	};
-
-	renderPassInfo.clearValueCount = 1;
-	renderPassInfo.pClearValues = &clearValue;
-
-	// -----------------------------
-	// Begin render pass
-	// -----------------------------
-	vkCmdBeginRenderPass(
-		cmd,
-		&renderPassInfo,
-		VK_SUBPASS_CONTENTS_INLINE
-	);
-
-	// -----------------------------
-	// Set viewport
-	// -----------------------------
-	VkViewport viewport{};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-
-	viewport.width = 1024;
-
-	viewport.height = 1024;
-
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-
-	vkCmdSetViewport(
-		cmd,
-		0,
-		1,
-		&viewport
-	);
-
-	// -----------------------------
-	// Set scissor
-	// -----------------------------
-	VkRect2D scissor{};
-	scissor.offset = { 0, 0 };
-
-	scissor.extent =
-	{
-		1024,
-		1024
-	};
-
-	vkCmdSetScissor(
-		cmd,
-		0,
-		1,
-		&scissor
-	);
-
-	// -----------------------------
-	// Bind shadow pipeline
-	// -----------------------------
-	vkCmdBindPipeline(
-		cmd,
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		m_shadowPipeline
-	);
-
-	// -----------------------------
-	// Bind shadow descriptors
-	// -----------------------------
-	vkCmdBindDescriptorSets(
-		cmd,
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		m_shadowPipelineLayout,
-		0,
-		1,
-		&m_shadowDescriptorSet,
-		0,
-		nullptr
-	);
-}
-
-
-void Renderer::UpdateShadowUniforms(ShadowUBO& shadowData)
-{
-	auto device = m_vulkan.GetDevice();
-
-	void* mapped;
-	vkMapMemory(
-		device,
-		m_shadowUniformMemory,
-		0,
-		sizeof(ShadowUBO),
-		0,
-		&mapped);
-
-	memcpy(mapped, &shadowData, sizeof(ShadowUBO));
-	vkUnmapMemory(device, m_shadowUniformMemory);
-}
-
 
 
 void Renderer::CreateSkyboxGeometry()
@@ -1751,17 +1184,6 @@ void Renderer::DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, con
 			&model
 		);
 
-
-		vkCmdPushConstants(
-			cmd,
-			m_shadowPipelineLayout,
-			VK_SHADER_STAGE_VERTEX_BIT,
-			0,
-			sizeof(glm::mat4),
-			&model
-		);
-
-
 		// Bind material (set 1)
 		mat.material->Bind(cmd, m_graphicsPipelineLayout);
 
@@ -1771,35 +1193,6 @@ void Renderer::DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, con
 
 	}
 
-}
-
-void Renderer::DrawShadowObjects(
-	VkCommandBuffer cmd,
-	const Scene& scene)
-{
-	for (auto& [entity, meshComp] : scene.meshs)
-	{
-		if (!scene.transforms.count(entity))
-			continue;
-
-		auto& transform =
-			scene.transforms.at(entity);
-
-		glm::mat4 model =
-			transform.GetMatrix();
-
-		vkCmdPushConstants(
-			cmd,
-			m_shadowPipelineLayout,
-			VK_SHADER_STAGE_VERTEX_BIT,
-			0,
-			sizeof(glm::mat4),
-			&model
-		);
-
-		meshComp.mesh->Bind(cmd);
-		meshComp.mesh->Draw(cmd);
-	}
 }
 
 

@@ -29,25 +29,98 @@ void Camera::RecalculateView()
 		m_up);
 }
 
+void Camera::SetPosition(
+	const glm::vec3& pos)
+{
+	m_position = pos;
+
+	RecalculateView();
+}
+
+void Camera::SetYaw(float yaw)
+{
+	m_yaw = yaw;
+
+	RecalculateView();
+}
+
+void Camera::SetPitch(float pitch)
+{
+	m_pitch = pitch;
+
+	RecalculateView();
+}
+
 
 void Camera::RecalculateProjection()
 {
-	m_projection = glm::perspective(
-		glm::radians(m_fov),
-		m_aspect,
-		m_near,
-		m_far);
+	if (m_projectionType == ProjectionType::Perspective)
+	{
+
+		m_projection = glm::perspective(
+			glm::radians(m_fov),
+			m_aspect,
+			m_near,
+			m_far);
+	}
+	else
+	{
+		float orthoLeft =
+			-m_orthoSize * m_aspect;
+
+		float orthoRight =
+			m_orthoSize * m_aspect;
+
+		float orthoBottom =
+			-m_orthoSize;
+
+		float orthoTop =
+			m_orthoSize;
+
+		m_projection = glm::orthoRH_ZO(
+			orthoLeft,
+			orthoRight,
+			orthoBottom,
+			orthoTop,
+			m_near,
+			m_far
+		);
+	}
 
 	// Vulkan clip space fix
 	m_projection[1][1] *= -1;
+
+
 }
 
 const glm::mat4& Camera::GetView() const { return m_view; }
 const glm::mat4& Camera::GetProjection() const { return m_projection; }
 
+const glm::vec3& Camera::GetPosition() const
+{
+	return m_position;
+}
+
+const glm::vec3& Camera::GetFront() const
+{
+	return m_front;
+}
+
 void Camera::SetAspect(float aspect)
 {
 	m_aspect = aspect;
+	RecalculateProjection();
+}
+
+void Camera::SetProjectionType(ProjectionType type)
+{
+	m_projectionType = type;
+	RecalculateProjection();
+}
+
+void Camera::SetOrthographicSize(float size)
+{
+	m_orthoSize = size;
 	RecalculateProjection();
 }
 
