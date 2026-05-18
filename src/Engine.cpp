@@ -23,21 +23,22 @@ Engine::Engine()
 
 
 	Mesh* mesh = m_renderer->LoadMesh("Assets/Models/ak47.fbx");
-	Mesh* monkey = m_renderer->LoadMesh("Assets/Models/suzzane.glb");
+	Mesh* monkey = m_renderer->LoadMesh("Assets/Models/ScatteringSkull/glTF-Binary/ScatteringSkull.glb");
+
 
 	Material* mat = m_renderer->LoadMaterial("Assets/Textures/ak47_albedo.png");
 	Material* defaultMat = m_renderer->LoadDefaultMaterial();
 
 
 	auto sphere = m_scene->CreateSphere(*m_renderer);
-	m_scene->SetPosition(sphere, { 3,0,0 });
+	m_scene->SetPosition(sphere, { 3,-3,0 });
 
 	// AK
 	auto e = m_scene->CreateEntity();
 	m_scene->names[e] = ECS::Name{ "ak_1" };
 	m_scene->transforms[e] = ECS::Transform{
-	{0, 0, -3},
-	{-90, 0, -90},
+	{0, -2, -3},
+	{-90, 0, 0},
 	{1, 1, 1} };
 
 	m_scene->meshs[e] = ECS::MeshRenderer{ mesh };
@@ -45,11 +46,11 @@ Engine::Engine()
 
 	// Suzzane
 	auto s = m_scene->CreateEntity();
-	m_scene->names[s] = ECS::Name{ "Suzzane" };
+	m_scene->names[s] = ECS::Name{ "Skull" };
 	m_scene->transforms[s] = ECS::Transform{
-	{6, 0, -3},
+	{6, -3, -3},
 	{0, 0, 0},
-	{1, 1, 1} };
+	{10, 10, 10} };
 
 	m_scene->meshs[s] = ECS::MeshRenderer{ monkey };
 	m_scene->materials[s] = ECS::MaterialRenderer{ defaultMat };
@@ -60,12 +61,12 @@ Engine::Engine()
 	m_scene->SetScale(plane, glm::vec3(20, 20, 10));
 
 	auto sun = m_scene->CreateDirectionalLight(*m_renderer);
-	m_scene->SetRotation(sun, glm::vec3(-20, 0, 0));
+	m_scene->SetRotation(sun, glm::vec3(-30, 0, 0));
 
 
 
-	//auto spot = m_scene->CreateSpotLight(*m_renderer);
-	//m_scene->SetRotation(spot, glm::vec3(-90, 0, 0));
+	auto spot = m_scene->CreateSpotLight(*m_renderer);
+	m_scene->SetRotation(spot, glm::vec3(-90, 0, 0));
 
 	//m_scene->CreatePointLight(*m_renderer);
 
@@ -255,6 +256,8 @@ void Engine::DrawImgui()
 
 	DrawGizmos(scene);
 
+	DrawStats();
+
 }
 
 float Engine::DrawMenuBar(Scene& scene)
@@ -264,6 +267,8 @@ float Engine::DrawMenuBar(Scene& scene)
 		if (ImGui::BeginMenu("Scene"))
 		{
 			ImGui::MenuItem("Show Skybox", nullptr, &scene.DrawSkybox);
+
+			ImGui::MenuItem("Show Stats", nullptr, &m_showStats);
 
 
 			if (ImGui::MenuItem("Perspective Camera"))
@@ -522,7 +527,32 @@ void Engine::DrawGizmos(Scene& scene)
 		}
 	}
 
+}
 
+void Engine::DrawStats()
+{
+	if (!m_showStats)return;
+
+	ImGui::SetNextWindowSize(ImVec2(250,100));
+
+	ImGui::Begin("Stats");
+
+	// FPS
+	//float fps = ImGui::GetIO().Framerate;
+	float fps = m_renderer->GetFPS();
+
+	// Frame time in milliseconds
+	float renderTime = 1000.0f / fps;
+
+	// Total rendered frames
+	static uint64_t totalFrames = 0;
+	totalFrames++;
+
+	ImGui::Text("FPS: %.1f", fps);
+	ImGui::Text("Render Time: %.3f ms", renderTime);
+	ImGui::Text("Frames Rendered: %llu", totalFrames);
+
+	ImGui::End();
 
 }
 

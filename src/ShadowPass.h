@@ -25,6 +25,8 @@ public:
 	glm::mat4 GetLightView() const;
 	glm::mat4 GetLightProjection() const;
 
+	static constexpr uint32_t SHADOW_SIZE = 2048;
+
 private:
 
 	void CreateShadowMap();
@@ -37,7 +39,6 @@ private:
 
 	VulkanContext* m_vulkan = nullptr;
 
-	static constexpr uint32_t SHADOW_SIZE = 4096;
 
 	// shadow texture
 	VkImage m_shadowImage = VK_NULL_HANDLE;

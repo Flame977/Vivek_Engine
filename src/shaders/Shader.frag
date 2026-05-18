@@ -1,6 +1,12 @@
 #version 450
 
 layout(set = 1, binding = 0) uniform sampler2D texSampler;
+layout(set = 1, binding = 1) uniform MaterialUBO
+{
+    float shininess;
+    float specularStrength;
+} material;
+
 layout(set = 0, binding = 1) uniform sampler2D shadowMap;
 
 layout(location = 0) out vec4 outColor;
@@ -27,67 +33,62 @@ layout(set = 0, binding = 0) uniform CameraUBO
     mat4 lightSpace;
 
     ivec4 lightInfo;
+    vec4 cameraPos;
 
     Light lights[MAX_LIGHTS];
 } ubo;
 
+
+
+
+vec2 ComputeReceiverPlaneDepthBias(vec3 projCoords)
+{
+    vec2 biasUV;
+    vec3 dx = dFdx(projCoords);
+    vec3 dy = dFdy(projCoords);
+    biasUV.x = dy.y * dx.z - dx.y * dy.z;
+    biasUV.y = dx.x * dy.z - dy.x * dx.z;
+    biasUV /= (dx.x * dy.y - dx.y * dy.x);
+    return biasUV;
+}
+
+
 float CalculateShadow(vec4 lightSpacePos, vec3 normal, vec3 lightDir)
 {
-    // Perspective divide
     vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
-
-    // Convert from NDC [-1,1] to [0,1]
     projCoords.xy = projCoords.xy * 0.5 + 0.5;
 
-    // Outside shadow map
     if (projCoords.x < 0.0 || projCoords.x > 1.0 ||
         projCoords.y < 0.0 || projCoords.y > 1.0 ||
         projCoords.z < 0.0 || projCoords.z > 1.0)
-    {
         return 0.0;
-    }
 
     float currentDepth = projCoords.z;
-
-    // Slope-scaled bias
-    //float bias = max(0.01 * (1.0 - dot(normal, lightDir)), 0.001);
-    float bias =
-    max(
-        0.005 * (1.0 - dot(normal, lightDir)),
-        0.0005
-    );
-
-
-    // PCF filtering
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
     float shadow = 0.0;
 
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-
     for (int x = -1; x <= 1; ++x)
-    {
         for (int y = -1; y <= 1; ++y)
         {
-            float pcfDepth = texture(
-                shadowMap,
-                projCoords.xy + vec2(x, y) * texelSize
-            ).r;
-
-            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+            shadow += currentDepth > pcfDepth ? 1.0 : 0.0;
         }
-    }
 
     shadow /= 9.0;
-
     return shadow;
 }
+
+
+
+
 
 void main()
 {
     vec3 norm = normalize(fragNormal);
-
     vec3 albedo = texture(texSampler, fragUV).rgb;
-
+    vec3 viewDir = normalize(ubo.cameraPos.xyz - fragPos);
     vec3 result = vec3(0.0);
+
 
     for (int i = 0; i < ubo.lightInfo.x; i++)
     {
@@ -139,32 +140,39 @@ void main()
             attenuation *= fade;
         }
 
-        // LIGHTING
+        // DIFFUSE LIGHTING
         float diff = max(dot(norm, lightDir), 0.0);
-
         vec3 diffuse = diff * light.color.rgb * intensity * attenuation;
+
+        // SPECULAR (Blinn-Phong)
+        vec3 halfDir = normalize(lightDir + viewDir);
+        float spec = pow(max(dot(norm, halfDir), 0.0), material.shininess);
+        vec3 specular = spec * light.color.rgb * intensity * attenuation * material.specularStrength;
+
 
         // SHADOWS ONLY FOR DIRECTIONAL
         if (light.position.w == 0.0)
         {
             float shadow = 0;
-            
-            /*
-            */
-            shadow = CalculateShadow(
-                fragLightSpace,
-                norm,
-                lightDir
-            );
+           
+            if(diff > 0.0)
+            {
+                shadow = CalculateShadow(
+                    fragLightSpace,
+                    norm,
+                    lightDir
+                );
+            }
 
             diffuse *= (1.0 - shadow);
+            specular *= (1.0 - shadow);
         }
 
-        result += diffuse;
+        result += diffuse + specular;
     }
 
     // Ambient
-    vec3 ambient = 0.05 * albedo;
+    vec3 ambient = 0.15 * albedo;
 
     vec3 finalColor = result * albedo + ambient;
 

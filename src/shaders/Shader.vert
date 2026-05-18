@@ -36,6 +36,7 @@ layout(set = 0, binding = 0) uniform CameraUBO
     mat4 lightSpace;
 
     ivec4 lightInfo;
+    vec4 cameraPos;
 
     Light lights[MAX_LIGHTS];
 } camera;

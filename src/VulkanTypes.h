@@ -54,6 +54,7 @@ struct alignas(16) CameraUBO
 	glm::mat4 lightSpcae;
 
 	glm::ivec4 lightInfo;
+	glm::vec4 cameraPos;
 
 	Light lights[MAX_LIGHTS];
 };

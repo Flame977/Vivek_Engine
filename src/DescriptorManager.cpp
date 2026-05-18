@@ -115,16 +115,13 @@ void DescriptorManager::UpdateBuffer(
 	bufferInfo.range = size;
 
 
-
 	std::array<VkWriteDescriptorSet, 1> writes{};
 
 	// UBO
-	writes[0].sType =
-		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writes[0].sType =VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	writes[0].dstSet = set;
-	writes[0].dstBinding = 0;
-	writes[0].descriptorType =
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	writes[0].dstBinding = binding;
+	writes[0].descriptorType =VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	writes[0].descriptorCount = 1;
 	writes[0].pBufferInfo = &bufferInfo;
 

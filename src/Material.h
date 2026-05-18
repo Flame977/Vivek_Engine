@@ -2,34 +2,40 @@
 #include "Texture.h"
 #include "DescriptorManager.h"
 
-//need to add more logic to this later, making different pipelines and shit for different types of materials...
+
+struct MaterialData
+{
+	float shininess = 32.0f;
+	float specularStrength = 0.5f;
+	float padding[2] = { 0.0f, 0.0f };
+};
+
+
 class Material
 {
 public:
-
-	//the material needs to be a container for a shader, like having a specific shader for a material instance
-	// we will do that later...
 
 	//Material(const Material&) = delete;
 	//Material& operator=(const Material&) = delete;
 
 
-	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+	void CreateDescriptorSet(VkDevice device, VkPhysicalDevice physicalDevice, DescriptorManager& descriptorManager, VkDescriptorSetLayout layout);
 
-
-	std::unique_ptr<Texture> m_albedo = nullptr;
-
-	std::unique_ptr<Texture> m_normal = nullptr;
-
-
-	void CreateDescriptorSet(
-		VkDevice device,
-		DescriptorManager& descriptorManager,
-		VkDescriptorSetLayout layout);
+	void UpdateMaterialData(MaterialData data);
 
 	void Bind(VkCommandBuffer cmd, VkPipelineLayout layout) const;
 
 	void Destroy();
+
+
+	MaterialData materialData;
+
+	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+
+	std::unique_ptr<Texture> m_albedo = nullptr;
+
+	VkBuffer        m_materialBuffer = VK_NULL_HANDLE;
+	VkDeviceMemory  m_materialMemory = VK_NULL_HANDLE;
+	VkDevice        m_device = VK_NULL_HANDLE;
 };
 
- 

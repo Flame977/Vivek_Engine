@@ -33,8 +33,6 @@ void ShadowPass::Render(
 {
 
 
-
-
 	// -----------------------------------
 	// Upload shadow UBO
 	// -----------------------------------
@@ -692,13 +690,14 @@ void ShadowPass::CreatePipeline()
 
 	// IMPORTANT:
 	// shadow acne prevention
+	//disabling for now...
 	rasterizer.depthBiasEnable = VK_TRUE;
 
-	rasterizer.depthBiasConstantFactor = 1.25f;
-
+	rasterizer.depthBiasConstantFactor = 0.25f;
+	rasterizer.depthBiasSlopeFactor = 0.25f;
 	rasterizer.depthBiasClamp = 0.0f;
 
-	rasterizer.depthBiasSlopeFactor = 1.75f;
+
 
 	// -----------------------------------
 	// Multisampling

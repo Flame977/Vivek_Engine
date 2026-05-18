@@ -49,6 +49,8 @@ private:
 
 	void DrawGizmos(Scene& scene);
 
+	void DrawStats();
+
 
 	Timer m_timer;
 
@@ -67,5 +69,10 @@ private:
 
 
 	bool m_running = false;
+
+	bool m_showStats = false;
+
+	float m_fps;
+
 
 };

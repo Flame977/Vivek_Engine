@@ -52,12 +52,7 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 
 	camData.view = camera.GetView();
 	camData.proj = camera.GetProjection();
-
-	camData.lightSpcae = m_shadowPass.GetLightSpace();
-
-
-	//ShadowUBO shadowData{};
-	//shadowData.lightSpace = m_shadowPass.GetLightSpace();
+	camData.cameraPos = glm::vec4(camera.GetPosition(), 1.0f);
 
 
 	// -----------------------------
@@ -95,15 +90,12 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 			// SHADOW LIGHT SPACE
 			// ----------------------------------
 
-			glm::vec3 lightDir =
-				glm::normalize(dir);
+			glm::vec3 lightDir = glm::normalize(dir);
 
-			// Center of scene for now
-			glm::vec3 target = camera.GetPosition() + camera.GetFront() * 10.0f;
+			glm::vec3 target = camera.GetPosition();
 
 			// Pull light backwards along direction
-			glm::vec3 lightPos =
-				target - lightDir * 60.0f;
+			glm::vec3 lightPos = target - lightDir * 50.0f;
 
 			// Light View
 			glm::mat4 lightView =
@@ -113,26 +105,44 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 					glm::vec3(0, 1, 0)
 				);
 
+			const float orthoSize = 5.0f;
+
+			// Snap target to texel grid IN LIGHT SPACE
+			// This is the key — we move the projection in discrete texel steps
+			float worldUnitsPerTexel = (orthoSize * 2.0f) / m_shadowPass.SHADOW_SIZE;
+
+			// Transform origin into light space
+			glm::vec4 originLS = lightView * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+			// Snap to texel grid
+			originLS.x = floor(originLS.x / worldUnitsPerTexel) * worldUnitsPerTexel;
+			originLS.y = floor(originLS.y / worldUnitsPerTexel) * worldUnitsPerTexel;
+
+			// Build corrected light view using snapped offset
+			glm::mat4 snapMatrix = glm::translate(
+				glm::mat4(1.0f),
+				glm::vec3(-originLS.x, -originLS.y, 0.0f) * worldUnitsPerTexel
+			);
+
+			lightView = snapMatrix * lightView;
+
 			// Light Projection
-			glm::mat4 lightProj =
-				glm::orthoRH_ZO(
-					-30.0f,
-					30.0f,
-					-30.0f,
-					30.0f,
-					0.1f,
-					100.0f
-				);
+			glm::mat4 lightProj = glm::orthoRH_ZO(
+				-orthoSize, orthoSize,
+				-orthoSize, orthoSize,
+				0.1f, 10000.0f
+			);
 
 			// Vulkan correction
 			lightProj[1][1] *= -1.0f;
 
 			// Final light-space matrix
-			camData.lightSpcae = lightProj * lightView;
+			//camData.lightSpcae = lightProj * lightView;
 
 			// Give SAME matrix to shadow pass
-			m_shadowPass.SetLightSpace(camData.lightSpcae);
+			m_shadowPass.SetLightSpace(lightProj * lightView);
 
+			camData.lightSpcae = m_shadowPass.GetLightSpace();
 
 		}
 		else if (light.type == ECS::LightType::Point)
@@ -153,6 +163,37 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 			gpuLight.params.y = cos(glm::radians(light.innerCone));
 			gpuLight.params.z = cos(glm::radians(light.outerCone));
 
+			// SHADOW CALCULATION for spot
+
+			/*
+			glm::vec3 lightDir = glm::normalize(dir);
+			// Pull light backwards along direction
+			glm::vec3 lightPos = lightTransform.position;
+			glm::vec3 target = lightPos + lightDir;
+
+			// Light View
+			glm::mat4 lightView =
+				glm::lookAt(
+					lightPos,
+					target,
+					glm::vec3(0, 1, 0)
+				);
+
+
+			glm::mat4 lightProj = glm::perspectiveRH_ZO(
+				glm::radians(light.outerCone * 2.0f),
+				1.0f,
+				0.5f,
+				light.range * light.range
+			);
+
+			lightProj[1][1] *= -1.0f;
+
+			m_shadowPass.SetLightSpace(lightProj * lightView);
+
+			camData.lightSpcae = m_shadowPass.GetLightSpace();
+			*/
+
 		}
 
 		index++;
@@ -161,17 +202,8 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 	//this decides the count of the lights in the shader...
 	camData.lightInfo.x = index;
 
-
-
 	m_vulkan.UpdateUniforms(camData);
 
-
-	// OG LOGIC...
-	//m_vulkan.DrawFrame();
-
-	//NEW LOGIC...
-	/*
-	*/
 
 	uint32_t imageIndex;
 	FrameResources* frame;
@@ -205,6 +237,7 @@ Material* Renderer::LoadMaterial(const std::string& path)
 
 	mat->CreateDescriptorSet(
 		m_vulkan.GetDevice(),
+		m_vulkan.GetPhysicalDevice(),
 		m_vulkan.GetDescriptorManager(),
 		m_materialDescriptorSetLayout
 	);
@@ -372,14 +405,26 @@ void Renderer::CreateDescriptorLayouts()
 
 
 	// SET 1 (Material)
+	VkDescriptorSetLayoutBinding albedoBinding{};
+	albedoBinding.binding = 0;
+	albedoBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	albedoBinding.descriptorCount = 1;
+	albedoBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	// Binding 1 - material UBO (new)
 	VkDescriptorSetLayoutBinding materialBinding{};
-	materialBinding.binding = 0;
-	materialBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	materialBinding.binding = 1;
+	materialBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	materialBinding.descriptorCount = 1;
 	materialBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+	std::vector<VkDescriptorSetLayoutBinding> matBindings = {
+		albedoBinding,
+		materialBinding
+	};
+
 	m_materialDescriptorSetLayout =
-		m_vulkan.CreateDescriptorSetLayout({ materialBinding });
+		m_vulkan.CreateDescriptorSetLayout(matBindings);
 
 
 	//SET 0 (skybox)
@@ -1186,6 +1231,10 @@ void Renderer::DrawObjects(VkCommandBuffer cmd, const FrameResources& frame, con
 
 		// Bind material (set 1)
 		mat.material->Bind(cmd, m_graphicsPipelineLayout);
+		mat.material->materialData.shininess = 64.0f;
+		mat.material->materialData.specularStrength = 0.5f;
+		mat.material->UpdateMaterialData(mat.material->materialData);
+
 
 		// Bind mesh + draw
 		meshRenderer.mesh->Bind(cmd);
