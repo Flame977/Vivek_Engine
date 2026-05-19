@@ -23,6 +23,9 @@ public:
 	const glm::mat4& GetView() const;
 	const glm::mat4& GetProjection() const;
 
+	const float GetNear() const;
+	const float GetFar() const;
+
 	const glm::vec3& GetPosition() const;
 
 	const glm::vec3& GetFront() const;

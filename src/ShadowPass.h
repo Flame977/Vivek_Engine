@@ -1,6 +1,18 @@
 #pragma once
 #include "vulkan/vulkan.h"
 #include "VulkanContext.h"
+#include "Constants.h"
+
+using namespace Constants;
+
+
+struct CascadeData
+{
+	glm::mat4 lightSpace;
+	float splitDepth;
+	float padding[3];
+};
+
 
 class Scene;
 
@@ -9,29 +21,32 @@ class ShadowPass
 public:
 
 	void Initialize(VulkanContext& vulkan);
-
-	VkImageView GetShadowImageView() const;
-
-	VkSampler GetShadowSampler() const;
-
-	void Render(
-		VkCommandBuffer cmd,
-		const Scene& scene);
-
+	void Render(VkCommandBuffer cmd, const Scene& scene);
 	void Cleanup(VkDevice device);
 
-	glm::mat4 GetLightSpace() const;
-	void SetLightSpace(const glm::mat4& matrix);
-	glm::mat4 GetLightView() const;
-	glm::mat4 GetLightProjection() const;
+	// Called from your light update code every frame
+	void UpdateCascades(
+		const glm::mat4& cameraView,
+		const glm::mat4& cameraProj,
+		const glm::vec3& lightDir,
+		float cameraNear,
+		float cameraFar
+	);
 
-	static constexpr uint32_t SHADOW_SIZE = 2048;
+	VkImageView GetShadowImageView() const;
+	VkSampler GetShadowSampler() const;
+
+	// Expose cascade data for main pass UBO
+	const std::array<CascadeData, SHADOW_CASCADE_COUNT>& GetCascades() const;
+
+
+	static constexpr uint32_t SHADOW_SIZE = 4096;
 
 private:
 
 	void CreateShadowMap();
 	void CreateRenderPass();
-	void CreateFramebuffer();
+	void CreateFramebuffers();
 	void CreatePipeline();
 	void CreateDescriptors();
 
@@ -48,25 +63,26 @@ private:
 	// debug / future sampling
 	VkSampler m_shadowSampler = VK_NULL_HANDLE;
 
+	// One image view and framebuffer per cascade
+	std::array<VkImageView, SHADOW_CASCADE_COUNT> m_cascadeImageViews{};
+	std::array<VkFramebuffer, SHADOW_CASCADE_COUNT> m_cascadeFramebuffers{};
+
 	// render pass
 	VkRenderPass m_renderPass = VK_NULL_HANDLE;
-	VkFramebuffer m_framebuffer = VK_NULL_HANDLE;
-
-	// pipeline
 	VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
 	VkPipeline m_pipeline = VK_NULL_HANDLE;
 
-	// uniforms
-	VkBuffer m_uniformBuffer = VK_NULL_HANDLE;
-	VkDeviceMemory m_uniformMemory = VK_NULL_HANDLE;
+
+	// One UBO per cascade
+	std::array<VkBuffer, SHADOW_CASCADE_COUNT> m_uniformBuffers{};
+	std::array<VkDeviceMemory, SHADOW_CASCADE_COUNT> m_uniformMemories{};
+	std::array<VkDescriptorSet, SHADOW_CASCADE_COUNT> m_descriptorSets{};
 
 	VkDescriptorSetLayout m_descriptorLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSet m_descriptorSet = VK_NULL_HANDLE;
+	// Cascade data computed every frame
+	std::array<CascadeData, SHADOW_CASCADE_COUNT> m_cascades{};
 
-	glm::mat4 m_lightSpace = glm::mat4(1.0f);
-	glm::mat4 m_lightView = glm::mat4(1.0f);
-	glm::mat4 m_lightProj = glm::mat4(1.0f);
 
 
 };

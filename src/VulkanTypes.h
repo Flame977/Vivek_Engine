@@ -4,6 +4,7 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 #include "glm.hpp"
+#include "Constants.h"
 
 struct QueueFamilyIndices
 {
@@ -46,15 +47,26 @@ struct alignas(16) Light
 	glm::vec4 params;
 };
 
+//static constexpr uint32_t SHADOW_CASCADE_COUNT = 4;
+
+struct alignas(16) GPUCascadeData
+{
+	glm::mat4 lightSpace;
+	glm::vec4 splitDepth; // x = split depth, yzw = padding
+};
+
 struct alignas(16) CameraUBO
 {
 	glm::mat4 view;
 	glm::mat4 proj;
 
-	glm::mat4 lightSpcae;
+	//glm::mat4 lightSpcae;
 
 	glm::ivec4 lightInfo;
 	glm::vec4 cameraPos;
+
+	//the cascade count is coming from shadow pass class... need to put it some where else
+	GPUCascadeData cascades[Constants::SHADOW_CASCADE_COUNT];
 
 	Light lights[MAX_LIGHTS];
 };

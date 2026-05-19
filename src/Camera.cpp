@@ -96,6 +96,16 @@ void Camera::RecalculateProjection()
 const glm::mat4& Camera::GetView() const { return m_view; }
 const glm::mat4& Camera::GetProjection() const { return m_projection; }
 
+const float Camera::GetNear() const
+{
+	return m_near;
+}
+
+const float Camera::GetFar() const
+{
+	return m_far;
+}
+
 const glm::vec3& Camera::GetPosition() const
 {
 	return m_position;

@@ -8,7 +8,6 @@ void DescriptorManager::CreateDescriptorPool(VkDevice device, uint32_t maxFrames
 	//uint32_t maxObjects = 100; // or RenderObjects.size()
 	uint32_t skyboxCount = 1;
 
-
 	//need to do this for both ubo and textures...
 	std::array<VkDescriptorPoolSize, 2> poolSizes{};
 
@@ -17,6 +16,7 @@ void DescriptorManager::CreateDescriptorPool(VkDevice device, uint32_t maxFrames
 
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	poolSizes[1].descriptorCount = maxObjects + skyboxCount;
+
 
 	// OG code
 	/*VkDescriptorPoolSize poolSize{};
@@ -244,78 +244,4 @@ void DescriptorManager::UpdateSkybox(
 		nullptr
 	);
 }
-
-
-
-/*
-
-
-
-//only for Camera stuff
-void DescriptorManager::UpdateFrameDescriptor(VkDescriptorSet set, VkBuffer buffer, VkDeviceSize size) const
-{
-	VkDescriptorBufferInfo bufferInfo{};
-	bufferInfo.buffer = buffer;
-	bufferInfo.offset = 0;
-	bufferInfo.range = size;
-
-	VkWriteDescriptorSet write{};
-
-	// UBO
-	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	write.dstSet = set;
-	write.dstBinding = 0;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	write.descriptorCount = 1;
-	write.pBufferInfo = &bufferInfo;
-
-	vkUpdateDescriptorSets(m_device, 1, &write, 0, nullptr);
-}
-
-//only for materials
-void DescriptorManager::UpdateMaterialDescriptor(VkDescriptorSet set, VkBuffer materialUBO, VkDeviceSize uboSize, VkImageView imageView, VkSampler sampler) const
-{
-	VkDescriptorBufferInfo bufferInfo{};
-	bufferInfo.buffer = materialUBO;
-	bufferInfo.offset = 0;
-	bufferInfo.range = uboSize;
-
-	VkDescriptorImageInfo imageInfo{};
-	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageInfo.imageView = imageView;
-	imageInfo.sampler = sampler;
-
-	std::array<VkWriteDescriptorSet, 2> writes{};
-
-	// Material UBO
-	writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[0].dstSet = set;
-	writes[0].dstBinding = 0;
-	writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	writes[0].descriptorCount = 1;
-	writes[0].pBufferInfo = &bufferInfo;
-
-	// Albedo texture
-	writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[1].dstSet = set;
-	writes[1].dstBinding = 1;
-	writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	writes[1].descriptorCount = 1;
-	writes[1].pImageInfo = &imageInfo;
-
-	vkUpdateDescriptorSets(
-		m_device,
-		static_cast<uint32_t>(writes.size()),
-		writes.data(),
-		0,
-		nullptr);
-
-}
-
-*/
-
-
-
-
-
 

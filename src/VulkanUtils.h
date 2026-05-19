@@ -34,7 +34,7 @@ namespace VulkanUtils
 
 	void CreateImage(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, uint32_t layerCount, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, VkImageCreateFlags flags);
 
-	VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t layerCount, VkImageViewType viewType);
+	VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t layerCount, VkImageViewType viewType, uint32_t baseArrayLayer = 0);
 
 	VkSampler CreateSampler(VkDevice device, VkFilter filter, VkSamplerAddressMode addressMode, bool enableCompare, VkCompareOp compareOp);
 

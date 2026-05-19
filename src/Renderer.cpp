@@ -90,59 +90,26 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 			// SHADOW LIGHT SPACE
 			// ----------------------------------
 
+			// Old shadow space calc...
 			glm::vec3 lightDir = glm::normalize(dir);
 
-			glm::vec3 target = camera.GetPosition();
-
-			// Pull light backwards along direction
-			glm::vec3 lightPos = target - lightDir * 50.0f;
-
-			// Light View
-			glm::mat4 lightView =
-				glm::lookAt(
-					lightPos,
-					target,
-					glm::vec3(0, 1, 0)
-				);
-
-			const float orthoSize = 5.0f;
-
-			// Snap target to texel grid IN LIGHT SPACE
-			// This is the key — we move the projection in discrete texel steps
-			float worldUnitsPerTexel = (orthoSize * 2.0f) / m_shadowPass.SHADOW_SIZE;
-
-			// Transform origin into light space
-			glm::vec4 originLS = lightView * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-
-			// Snap to texel grid
-			originLS.x = floor(originLS.x / worldUnitsPerTexel) * worldUnitsPerTexel;
-			originLS.y = floor(originLS.y / worldUnitsPerTexel) * worldUnitsPerTexel;
-
-			// Build corrected light view using snapped offset
-			glm::mat4 snapMatrix = glm::translate(
-				glm::mat4(1.0f),
-				glm::vec3(-originLS.x, -originLS.y, 0.0f) * worldUnitsPerTexel
+			m_shadowPass.UpdateCascades(
+				camData.view,
+				camData.proj,
+				dir,
+				camera.GetNear(),
+				camera.GetFar()
 			);
 
-			lightView = snapMatrix * lightView;
+			// Fill cascade data into UBO
+			// Basically sending the cascades data to the shader here in the camdata struct here itself
+			auto& cascades = m_shadowPass.GetCascades();
+			for (uint32_t i = 0; i < Constants::SHADOW_CASCADE_COUNT; i++)
+			{
+				camData.cascades[i].lightSpace = cascades[i].lightSpace;
+				camData.cascades[i].splitDepth = glm::vec4(cascades[i].splitDepth, 0.0f, 0.0f, 0.0f);
+			}
 
-			// Light Projection
-			glm::mat4 lightProj = glm::orthoRH_ZO(
-				-orthoSize, orthoSize,
-				-orthoSize, orthoSize,
-				0.1f, 10000.0f
-			);
-
-			// Vulkan correction
-			lightProj[1][1] *= -1.0f;
-
-			// Final light-space matrix
-			//camData.lightSpcae = lightProj * lightView;
-
-			// Give SAME matrix to shadow pass
-			m_shadowPass.SetLightSpace(lightProj * lightView);
-
-			camData.lightSpcae = m_shadowPass.GetLightSpace();
 
 		}
 		else if (light.type == ECS::LightType::Point)
@@ -164,6 +131,7 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 			gpuLight.params.z = cos(glm::radians(light.outerCone));
 
 			// SHADOW CALCULATION for spot
+			// will do this later...
 
 			/*
 			glm::vec3 lightDir = glm::normalize(dir);
@@ -362,17 +330,6 @@ void Renderer::RecordCommands(
 void Renderer::CreateDescriptorLayouts()
 {
 
-	/*
-	// SET 0 (Frame)
-	VkDescriptorSetLayoutBinding frameBinding{};
-	frameBinding.binding = 0;
-	frameBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	frameBinding.descriptorCount = 1;
-	frameBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-
-	m_frameDescriptorSetLayout =
-		m_vulkan.CreateDescriptorSetLayout({ frameBinding });
-	*/
 	std::vector<VkDescriptorSetLayoutBinding>
 		frameBindings;
 
@@ -402,8 +359,6 @@ void Renderer::CreateDescriptorLayouts()
 
 
 
-
-
 	// SET 1 (Material)
 	VkDescriptorSetLayoutBinding albedoBinding{};
 	albedoBinding.binding = 0;
@@ -423,8 +378,7 @@ void Renderer::CreateDescriptorLayouts()
 		materialBinding
 	};
 
-	m_materialDescriptorSetLayout =
-		m_vulkan.CreateDescriptorSetLayout(matBindings);
+	m_materialDescriptorSetLayout = m_vulkan.CreateDescriptorSetLayout(matBindings);
 
 
 	//SET 0 (skybox)
@@ -633,8 +587,7 @@ void Renderer::CreateFrameDescriptors()
 		FrameResources& frame = m_vulkan.GetFrame(i);
 
 		// Allocate descriptor set (same as before)
-		frame.globalDescriptorSet =
-			descriptorManager.AllocateDescriptorSet(m_frameDescriptorSetLayout);
+		frame.globalDescriptorSet = descriptorManager.AllocateDescriptorSet(m_frameDescriptorSetLayout);
 
 		// Update UBO 
 		descriptorManager.UpdateBuffer(
@@ -645,37 +598,22 @@ void Renderer::CreateFrameDescriptors()
 		);
 
 		// ----------------------------
-	 // Binding 1 : Shadow Map
-	 // ----------------------------
+		// Binding 1 : Shadow Map (array cuz of CSM)
+		// ----------------------------
 
 		VkDescriptorImageInfo shadowInfo{};
-		shadowInfo.imageLayout =
-			VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-
-		shadowInfo.imageView =
-			m_shadowPass.GetShadowImageView();
-
-		shadowInfo.sampler =
-			m_shadowPass.GetShadowSampler();
+		shadowInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+		shadowInfo.imageView = m_shadowPass.GetShadowImageView();
+		shadowInfo.sampler = m_shadowPass.GetShadowSampler();
 
 		VkWriteDescriptorSet shadowWrite{};
-		shadowWrite.sType =
-			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-
-		shadowWrite.dstSet =
-			frame.globalDescriptorSet;
-
+		shadowWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		shadowWrite.dstSet = frame.globalDescriptorSet;
 		shadowWrite.dstBinding = 1;
-
 		shadowWrite.dstArrayElement = 0;
-
-		shadowWrite.descriptorType =
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-
+		shadowWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		shadowWrite.descriptorCount = 1;
-
-		shadowWrite.pImageInfo =
-			&shadowInfo;
+		shadowWrite.pImageInfo = &shadowInfo;
 
 		vkUpdateDescriptorSets(
 			m_vulkan.GetDevice(),

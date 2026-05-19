@@ -7,16 +7,18 @@ layout(set = 1, binding = 1) uniform MaterialUBO
     float specularStrength;
 } material;
 
-layout(set = 0, binding = 1) uniform sampler2D shadowMap;
+layout(set = 0, binding = 1) uniform sampler2DArray shadowMap;
 
 layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec3 fragPos;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec2 fragUV;
-layout(location = 3) in vec4 fragLightSpace;
+//layout(location = 3) in vec4 fragLightSpace;
 
 #define MAX_LIGHTS 16
+#define SHADOW_CASCADE_COUNT 4
+
 
 struct Light
 {
@@ -26,19 +28,51 @@ struct Light
     vec4 params;
 };
 
+
+struct CascadeData
+{
+    mat4 lightSpace;
+    vec4 splitDepth; // x = split depth
+};
+
 layout(set = 0, binding = 0) uniform CameraUBO
 {
     mat4 view;
     mat4 proj;
-    mat4 lightSpace;
+    
+    //mat4 lightSpace;
 
     ivec4 lightInfo;
     vec4 cameraPos;
+
+    CascadeData cascades[SHADOW_CASCADE_COUNT];
 
     Light lights[MAX_LIGHTS];
 } ubo;
 
 
+
+// ---------------------------------------------------
+// Select which cascade this fragment belongs to
+// based on its depth in view space
+// ---------------------------------------------------
+int SelectCascade(vec3 fragPos)
+{
+    //debugging...
+    //return 2;
+    
+    // Transform fragment to view space to get depth
+    float depth = abs((ubo.view * vec4(fragPos, 1.0)).z);
+
+    for (int i = 0; i < SHADOW_CASCADE_COUNT; i++)
+    {
+        if (depth < ubo.cascades[i].splitDepth.x)
+            return i;
+    }
+
+    // Beyond all cascades — no shadow
+    return SHADOW_CASCADE_COUNT - 1;
+}
 
 
 vec2 ComputeReceiverPlaneDepthBias(vec3 projCoords)
@@ -53,8 +87,16 @@ vec2 ComputeReceiverPlaneDepthBias(vec3 projCoords)
 }
 
 
-float CalculateShadow(vec4 lightSpacePos, vec3 normal, vec3 lightDir)
+float CalculateShadow(vec3 fragPos, vec3 normal, vec3 lightDir)
 {
+
+    // Select cascade
+    int cascadeIndex = SelectCascade(fragPos);
+
+    // Transform fragment into this cascade's light space
+    vec4 lightSpacePos = ubo.cascades[cascadeIndex].lightSpace * vec4(fragPos, 1.0);
+
+
     vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
     projCoords.xy = projCoords.xy * 0.5 + 0.5;
 
@@ -64,14 +106,22 @@ float CalculateShadow(vec4 lightSpacePos, vec3 normal, vec3 lightDir)
         return 0.0;
 
     float currentDepth = projCoords.z;
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+
     float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0).xy;
 
     for (int x = -1; x <= 1; ++x)
         for (int y = -1; y <= 1; ++y)
         {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+
+            // Sample the array texture with cascade index as the layer
+            float pcfDepth = texture(
+                shadowMap,
+                vec3(projCoords.xy + vec2(x, y) * texelSize, float(cascadeIndex))
+            ).r;
+
             shadow += currentDepth > pcfDepth ? 1.0 : 0.0;
+
         }
 
     shadow /= 9.0;
@@ -158,7 +208,7 @@ void main()
             if(diff > 0.0)
             {
                 shadow = CalculateShadow(
-                    fragLightSpace,
+                    fragPos,
                     norm,
                     lightDir
                 );
@@ -177,4 +227,20 @@ void main()
     vec3 finalColor = result * albedo + ambient;
 
     outColor = vec4(finalColor, 1.0);
+
+
+    // DEBUG: visualize cascade selection
+    // Add this at the end of main() temporarily
+    int cascadeIndex = SelectCascade(fragPos);
+    vec3 cascadeColors[4] = vec3[](
+        vec3(1.0, 0.0, 0.0),  // cascade 0 = red
+        vec3(0.0, 1.0, 0.0),  // cascade 1 = green
+        vec3(0.0, 0.0, 1.0),  // cascade 2 = blue
+        vec3(1.0, 1.0, 0.0)   // cascade 3 = yellow
+    );
+    outColor = vec4(mix(finalColor, cascadeColors[cascadeIndex], 0.5), 1.0);
+
+
+
+
 }

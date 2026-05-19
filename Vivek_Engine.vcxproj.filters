@@ -212,6 +212,9 @@
     <ClInclude Include="src\ShadowPass.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Constants.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\shaders\Shader.vert" />

@@ -1,7 +1,12 @@
 #include "Engine.h"
 
-//“You have the right to perform your duty, but not to the fruits of your actions.”
+// Your duty is to uphold Dharma 
+// Never to claim the reward
+// Let not the promise of victory guide you
+// The battlefield summons, be relentless in action
+
 //- Bhagwad Geeta - Chapter 2, verse 47 
+
 
 int main()
 {

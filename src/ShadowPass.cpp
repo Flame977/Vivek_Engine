@@ -10,7 +10,7 @@ void ShadowPass::Initialize(VulkanContext& vulkan)
 
 	CreateRenderPass();
 
-	CreateFramebuffer();
+	CreateFramebuffers();
 
 	CreateDescriptors();
 
@@ -27,184 +27,187 @@ VkSampler ShadowPass::GetShadowSampler() const
 	return m_shadowSampler;
 }
 
-void ShadowPass::Render(
-	VkCommandBuffer cmd,
-	const Scene& scene)
+const std::array<CascadeData, SHADOW_CASCADE_COUNT>& ShadowPass::GetCascades() const
+{
+	return m_cascades;
+}
+
+void ShadowPass::Render(VkCommandBuffer cmd, const Scene& scene)
 {
 
-
-	// -----------------------------------
-	// Upload shadow UBO
-	// -----------------------------------
-
-	ShadowUBO ubo{};
-	ubo.lightSpace = m_lightSpace;
-
-	void* mapped;
-
-	vkMapMemory(
-		m_vulkan->GetDevice(),
-		m_uniformMemory,
-		0,
-		sizeof(ShadowUBO),
-		0,
-		&mapped
-	);
-
-	memcpy(mapped, &ubo, sizeof(ShadowUBO));
-
-	vkUnmapMemory(
-		m_vulkan->GetDevice(),
-		m_uniformMemory
-	);
-
-	// -----------------------------------
-	// Begin render pass
-	// -----------------------------------
-
-	VkClearValue clear{};
-	clear.depthStencil = { 1.0f, 0 };
-
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.sType =
-		VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-
-	renderPassInfo.renderPass =
-		m_renderPass;
-
-	renderPassInfo.framebuffer =
-		m_framebuffer;
-
-	renderPassInfo.renderArea.offset =
+	for (uint32_t c = 0; c < SHADOW_CASCADE_COUNT; c++)
 	{
-		0,0
-	};
+		// -----------------------------------
+		// Upload shadow UBO
+		// -----------------------------------
 
-	renderPassInfo.renderArea.extent =
-	{
-		SHADOW_SIZE,
-		SHADOW_SIZE
-	};
+		/*ShadowUBO ubo{};
+		ubo.lightSpace = m_lightSpace;*/
 
-	renderPassInfo.clearValueCount = 1;
-	renderPassInfo.pClearValues = &clear;
-
-	vkCmdBeginRenderPass(
-		cmd,
-		&renderPassInfo,
-		VK_SUBPASS_CONTENTS_INLINE
-	);
-
-	// -----------------------------------
-	// Viewport
-	// -----------------------------------
-
-	VkViewport viewport{};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-
-	viewport.width =
-		(float)SHADOW_SIZE;
-
-	viewport.height =
-		(float)SHADOW_SIZE;
-
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-
-	vkCmdSetViewport(
-		cmd,
-		0,
-		1,
-		&viewport
-	);
-
-	// -----------------------------------
-	// Scissor
-	// -----------------------------------
-
-	VkRect2D scissor{};
-	scissor.offset = { 0,0 };
-
-	scissor.extent =
-	{
-		SHADOW_SIZE,
-		SHADOW_SIZE
-	};
-
-	vkCmdSetScissor(
-		cmd,
-		0,
-		1,
-		&scissor
-	);
-
-	// -----------------------------------
-	// Bind pipeline
-	// -----------------------------------
-
-	vkCmdBindPipeline(
-		cmd,
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		m_pipeline
-	);
-
-	// -----------------------------------
-	// Bind descriptors
-	// -----------------------------------
-
-	vkCmdBindDescriptorSets(
-		cmd,
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		m_pipelineLayout,
-		0,
-		1,
-		&m_descriptorSet,
-		0,
-		nullptr
-	);
-
-
-	// -----------------------------------
-	// Draw meshes
-	// -----------------------------------
-
-	for (auto& [entity, meshComp] : scene.meshs)
-	{
-		if (!scene.transforms.count(entity))
-			continue;
-
-		auto& transform =
-			scene.transforms.at(entity);
-
-		glm::mat4 model =
-			transform.GetMatrix();
-
-		vkCmdPushConstants(
-			cmd,
-			m_pipelineLayout,
-			VK_SHADER_STAGE_VERTEX_BIT,
+		void* mapped;
+		vkMapMemory(
+			m_vulkan->GetDevice(),
+			m_uniformMemories[c],
 			0,
 			sizeof(glm::mat4),
-			&model
+			0,
+			&mapped
 		);
 
-		meshComp.mesh->Bind(cmd);
+		memcpy(mapped, &m_cascades[c], sizeof(glm::mat4));
+		vkUnmapMemory(m_vulkan->GetDevice(), m_uniformMemories[c]);
 
-		meshComp.mesh->Draw(cmd);
+		// -----------------------------------
+		// Begin render pass
+		// -----------------------------------
+
+		VkClearValue clear{};
+		clear.depthStencil = { 1.0f, 0 };
+
+		VkRenderPassBeginInfo renderPassInfo{};
+
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = m_renderPass;
+		renderPassInfo.framebuffer = m_cascadeFramebuffers[c];
+		renderPassInfo.renderArea.offset =
+		{
+			0,0
+		};
+		renderPassInfo.renderArea.extent =
+		{
+			SHADOW_SIZE,
+			SHADOW_SIZE
+		};
+		renderPassInfo.clearValueCount = 1;
+		renderPassInfo.pClearValues = &clear;
+
+		vkCmdBeginRenderPass(cmd, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		// -----------------------------------
+		// Viewport
+		// -----------------------------------
+
+		VkViewport viewport{};
+
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = (float)SHADOW_SIZE;
+		viewport.height = (float)SHADOW_SIZE;
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+
+		vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+
+		// -----------------------------------
+		// Scissor
+		// -----------------------------------
+
+		VkRect2D scissor{};
+
+		scissor.offset = { 0,0 };
+		scissor.extent =
+		{
+			SHADOW_SIZE,
+			SHADOW_SIZE
+		};
+
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+
+		// -----------------------------------
+		// Bind pipeline
+		// -----------------------------------
+
+		vkCmdBindPipeline(
+			cmd,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			m_pipeline
+		);
+
+		// -----------------------------------
+		// Bind descriptors
+		// -----------------------------------
+
+		vkCmdBindDescriptorSets(
+			cmd,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			m_pipelineLayout,
+			0,
+			1,
+			&m_descriptorSets[c],
+			0,
+			nullptr
+		);
+
+
+		// -----------------------------------
+		// Draw meshes
+		// -----------------------------------
+
+		for (auto& [entity, meshComp] : scene.meshs)
+		{
+			if (!scene.transforms.count(entity))
+				continue;
+
+			auto& transform = scene.transforms.at(entity);
+
+			glm::mat4 model = transform.GetMatrix();
+
+			vkCmdPushConstants(
+				cmd,
+				m_pipelineLayout,
+				VK_SHADER_STAGE_VERTEX_BIT,
+				0,
+				sizeof(glm::mat4),
+				&model
+			);
+
+
+			meshComp.mesh->Bind(cmd);
+			meshComp.mesh->Draw(cmd);
+		}
+
+		// -----------------------------------
+		// End pass
+		// -----------------------------------
+
+		vkCmdEndRenderPass(cmd);
+
+
 	}
-
-	// -----------------------------------
-	// End pass
-	// -----------------------------------
-
-	vkCmdEndRenderPass(cmd);
-
+	//end of for loop
 
 }
 
 void ShadowPass::Cleanup(VkDevice device)
 {
+
+	// Destroy per-cascade image views
+	for (uint32_t i = 0; i < SHADOW_CASCADE_COUNT; i++)
+	{
+		if (m_cascadeImageViews[i] != VK_NULL_HANDLE)
+		{
+			vkDestroyImageView(device, m_cascadeImageViews[i], nullptr);
+			m_cascadeImageViews[i] = VK_NULL_HANDLE;
+		}
+
+		if (m_cascadeFramebuffers[i] != VK_NULL_HANDLE)
+		{
+			vkDestroyFramebuffer(device, m_cascadeFramebuffers[i], nullptr);
+			m_cascadeFramebuffers[i] = VK_NULL_HANDLE;
+		}
+
+		if (m_uniformBuffers[i] != VK_NULL_HANDLE)
+		{
+			vkDestroyBuffer(device, m_uniformBuffers[i], nullptr);
+			vkFreeMemory(device, m_uniformMemories[i], nullptr);
+			m_uniformBuffers[i] = VK_NULL_HANDLE;
+			m_uniformMemories[i] = VK_NULL_HANDLE;
+		}
+	}
+
+
 	if (m_pipeline != VK_NULL_HANDLE)
 	{
 		vkDestroyPipeline(
@@ -232,13 +235,16 @@ void ShadowPass::Cleanup(VkDevice device)
 		);
 	}
 
-	if (m_framebuffer != VK_NULL_HANDLE)
+	for (auto frameBuffer : m_cascadeFramebuffers)
 	{
-		vkDestroyFramebuffer(
-			device,
-			m_framebuffer,
-			nullptr
-		);
+		if (frameBuffer != VK_NULL_HANDLE)
+		{
+			vkDestroyFramebuffer(
+				device,
+				frameBuffer,
+				nullptr
+			);
+		}
 	}
 
 	if (m_shadowImageView != VK_NULL_HANDLE)
@@ -277,22 +283,28 @@ void ShadowPass::Cleanup(VkDevice device)
 		);
 	}
 
-	if (m_uniformBuffer != VK_NULL_HANDLE)
+	for (auto buffer : m_uniformBuffers)
 	{
-		vkDestroyBuffer(
-			device,
-			m_uniformBuffer,
-			nullptr
-		);
+		if (buffer != VK_NULL_HANDLE)
+		{
+			vkDestroyBuffer(
+				device,
+				buffer,
+				nullptr
+			);
+		}
 	}
 
-	if (m_uniformMemory != VK_NULL_HANDLE)
+	for (auto mem : m_uniformMemories)
 	{
-		vkFreeMemory(
-			device,
-			m_uniformMemory,
-			nullptr
-		);
+		if (mem != VK_NULL_HANDLE)
+		{
+			vkFreeMemory(
+				device,
+				mem,
+				nullptr
+			);
+		}
 	}
 
 	if (m_descriptorLayout != VK_NULL_HANDLE)
@@ -305,41 +317,61 @@ void ShadowPass::Cleanup(VkDevice device)
 	}
 }
 
-glm::mat4 ShadowPass::GetLightSpace() const
+
+
+// Simple version of update cascades...
+void ShadowPass::UpdateCascades(
+	const glm::mat4& cameraView,
+	const glm::mat4& cameraProj,
+	const glm::vec3& lightDir,
+	float cameraNear,
+	float cameraFar)
 {
-	return m_lightSpace;
+	// Simple fixed sizes per cascade — tune these to your scene
+	float sizes[SHADOW_CASCADE_COUNT] = { 15.0f, 30.0f, 60.0f, 120.0f };
+	float splits[SHADOW_CASCADE_COUNT] = { 10.0f, 25.0f, 60.0f, 150.0f };
+
+	glm::vec3 target = glm::vec3(glm::inverse(cameraView)[3]);
+
+	for (uint32_t i = 0; i < SHADOW_CASCADE_COUNT; i++)
+	{
+		float s = sizes[i];
+
+		glm::vec3 lightPos = target - glm::normalize(lightDir) * 50.0f;
+
+		glm::mat4 lightView = glm::lookAt(
+			lightPos,
+			target,
+			glm::vec3(0.0f, 1.0f, 0.0f)
+		);
+
+		glm::mat4 lightProj = glm::orthoRH_ZO(
+			-s, s,
+			-s, s,
+			0.01f, 1000.0f
+		);
+		lightProj[1][1] *= -1.0f;
+
+		m_cascades[i].lightSpace = lightProj * lightView;
+		m_cascades[i].splitDepth = splits[i];
+	}
 }
 
-void ShadowPass::SetLightSpace(
-	const glm::mat4& matrix)
-{
-	m_lightSpace = matrix;
-}
 
-glm::mat4 ShadowPass::GetLightView() const
-{
-	return m_lightView;
-}
 
-glm::mat4 ShadowPass::GetLightProjection() const
-{
-	return m_lightProj;
-}
 
 void ShadowPass::CreateShadowMap()
 {
-	auto device =
-		m_vulkan->GetDevice();
+	auto device = m_vulkan->GetDevice();
 
-	auto physicalDevice =
-		m_vulkan->GetPhysicalDevice();
+	auto physicalDevice = m_vulkan->GetPhysicalDevice();
 
 	VulkanUtils::CreateImage(
 		device,
 		physicalDevice,
 		SHADOW_SIZE,
 		SHADOW_SIZE,
-		1,
+		SHADOW_CASCADE_COUNT,
 		VK_FORMAT_D32_SFLOAT,
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
@@ -350,24 +382,38 @@ void ShadowPass::CreateShadowMap()
 		0
 	);
 
-	m_shadowImageView =
-		VulkanUtils::CreateImageView(
+	m_shadowImageView = VulkanUtils::CreateImageView(
+		device,
+		m_shadowImage,
+		VK_FORMAT_D32_SFLOAT,
+		VK_IMAGE_ASPECT_DEPTH_BIT,
+		SHADOW_CASCADE_COUNT,
+		VK_IMAGE_VIEW_TYPE_2D_ARRAY
+	);
+
+
+	// Per-cascade views — used by framebuffers to render into each layer
+	for (uint32_t i = 0; i < SHADOW_CASCADE_COUNT; i++)
+	{
+		m_cascadeImageViews[i] = VulkanUtils::CreateImageView(
 			device,
 			m_shadowImage,
 			VK_FORMAT_D32_SFLOAT,
 			VK_IMAGE_ASPECT_DEPTH_BIT,
 			1,
-			VK_IMAGE_VIEW_TYPE_2D
+			VK_IMAGE_VIEW_TYPE_2D,
+			i
 		);
 
-	m_shadowSampler =
-		VulkanUtils::CreateSampler(
-			device,
-			VK_FILTER_LINEAR,
-			VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-			VK_FALSE,
-			VK_COMPARE_OP_ALWAYS
-		);
+	}
+
+	m_shadowSampler = VulkanUtils::CreateSampler(
+		device,
+		VK_FILTER_LINEAR,
+		VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+		VK_FALSE,
+		VK_COMPARE_OP_ALWAYS
+	);
 }
 
 
@@ -439,85 +485,75 @@ void ShadowPass::CreateRenderPass()
 	}
 }
 
-void ShadowPass::CreateFramebuffer()
+void ShadowPass::CreateFramebuffers()
 {
-	VkImageView attachments[] =
+	for (uint32_t i = 0; i < SHADOW_CASCADE_COUNT; i++)
 	{
-		m_shadowImageView
-	};
+		VkImageView attachments[] = { m_cascadeImageViews[i], };
 
-	VkFramebufferCreateInfo framebufferInfo{};
-	framebufferInfo.sType =
-		VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		VkFramebufferCreateInfo framebufferInfo{};
 
-	framebufferInfo.renderPass =
-		m_renderPass;
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = m_renderPass;
+		framebufferInfo.attachmentCount = 1;
+		framebufferInfo.pAttachments = attachments;
+		framebufferInfo.width = SHADOW_SIZE;
+		framebufferInfo.height = SHADOW_SIZE;
+		framebufferInfo.layers = 1;
 
-	framebufferInfo.attachmentCount = 1;
-	framebufferInfo.pAttachments =
-		attachments;
+		if (vkCreateFramebuffer(
+			m_vulkan->GetDevice(),
+			&framebufferInfo,
+			nullptr,
+			&m_cascadeFramebuffers[i]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create shadow framebuffer!");
+		}
 
-	framebufferInfo.width =
-		SHADOW_SIZE;
-
-	framebufferInfo.height =
-		SHADOW_SIZE;
-
-	framebufferInfo.layers = 1;
-
-	if (vkCreateFramebuffer(
-		m_vulkan->GetDevice(),
-		&framebufferInfo,
-		nullptr,
-		&m_framebuffer) != VK_SUCCESS)
-	{
-		throw std::runtime_error(
-			"Failed to create shadow framebuffer!"
-		);
 	}
 }
 
 void ShadowPass::CreateDescriptors()
 {
-	auto& descriptorManager =
-		m_vulkan->GetDescriptorManager();
+
+
+	auto& descriptorManager = m_vulkan->GetDescriptorManager();
 
 	VkDescriptorSetLayoutBinding binding{};
+
 	binding.binding = 0;
-
 	binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-
 	binding.descriptorCount = 1;
-
 	binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-	m_descriptorLayout =
-		m_vulkan->CreateDescriptorSetLayout(
-			{ binding }
+	m_descriptorLayout = m_vulkan->CreateDescriptorSetLayout({ binding });
+
+	for (uint32_t i = 0; i < SHADOW_CASCADE_COUNT; i++)
+	{
+
+		VulkanUtils::CreateBuffer(
+			m_vulkan->GetDevice(),
+			m_vulkan->GetPhysicalDevice(),
+			sizeof(glm::mat4),
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			m_uniformBuffers[i],
+			m_uniformMemories[i]
 		);
 
-	VulkanUtils::CreateBuffer(
-		m_vulkan->GetDevice(),
-		m_vulkan->GetPhysicalDevice(),
-		sizeof(ShadowUBO),
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		m_uniformBuffer,
-		m_uniformMemory
-	);
+		m_descriptorSets[i] = descriptorManager.AllocateDescriptorSet(m_descriptorLayout);
 
-	m_descriptorSet =
-		descriptorManager.AllocateDescriptorSet(
-			m_descriptorLayout
+		descriptorManager.UpdateBuffer(
+			m_descriptorSets[i],
+			0,
+			m_uniformBuffers[i],
+			sizeof(glm::mat4)
 		);
 
-	descriptorManager.UpdateBuffer(
-		m_descriptorSet,
-		0,
-		m_uniformBuffer,
-		sizeof(ShadowUBO)
-	);
+
+	}
+
 }
 
 void ShadowPass::CreatePipeline()

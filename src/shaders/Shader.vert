@@ -9,8 +9,7 @@ layout(location = 0) out vec3 fragPos;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec2 fragUV;
 
-layout(location = 3) out vec4 fragLightSpace;   
-
+//layout(location = 3) out vec4 fragLightSpace;   
 
 layout(push_constant) uniform PushConstant
 {
@@ -19,6 +18,7 @@ layout(push_constant) uniform PushConstant
 
 
 #define MAX_LIGHTS 16
+#define SHADOW_CASCADE_COUNT 4
 
 struct Light
 {
@@ -28,15 +28,23 @@ struct Light
     vec4 params;
 };
 
+struct CascadeData
+{
+    mat4 lightSpace;
+    vec4 splitDepth;
+};
+
 layout(set = 0, binding = 0) uniform CameraUBO
 {
     mat4 view;
     mat4 proj;
 
-    mat4 lightSpace;
+    //mat4 lightSpace;
 
     ivec4 lightInfo;
     vec4 cameraPos;
+
+    CascadeData cascades[SHADOW_CASCADE_COUNT];
 
     Light lights[MAX_LIGHTS];
 } camera;
@@ -55,7 +63,7 @@ void main()
 
     fragUV = inUV;
 
-    fragLightSpace = camera.lightSpace * worldPos; 
+    //fragLightSpace = camera.lightSpace * worldPos; 
     
     gl_Position = camera.proj * camera.view * worldPos;
 }

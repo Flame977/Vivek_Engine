@@ -23,7 +23,7 @@ Engine::Engine()
 
 
 	Mesh* mesh = m_renderer->LoadMesh("Assets/Models/ak47.fbx");
-	Mesh* monkey = m_renderer->LoadMesh("Assets/Models/ScatteringSkull/glTF-Binary/ScatteringSkull.glb");
+	Mesh* skull = m_renderer->LoadMesh("Assets/Models/BigModels/ScatteringSkull/glTF-Binary/ScatteringSkull.glb");
 
 
 	Material* mat = m_renderer->LoadMaterial("Assets/Textures/ak47_albedo.png");
@@ -44,7 +44,7 @@ Engine::Engine()
 	m_scene->meshs[e] = ECS::MeshRenderer{ mesh };
 	m_scene->materials[e] = ECS::MaterialRenderer{ mat };
 
-	// Suzzane
+	// Skull
 	auto s = m_scene->CreateEntity();
 	m_scene->names[s] = ECS::Name{ "Skull" };
 	m_scene->transforms[s] = ECS::Transform{
@@ -52,7 +52,7 @@ Engine::Engine()
 	{0, 0, 0},
 	{10, 10, 10} };
 
-	m_scene->meshs[s] = ECS::MeshRenderer{ monkey };
+	m_scene->meshs[s] = ECS::MeshRenderer{ skull };
 	m_scene->materials[s] = ECS::MaterialRenderer{ defaultMat };
 
 	auto plane = m_scene->CreatePlane(*m_renderer);
@@ -64,9 +64,8 @@ Engine::Engine()
 	m_scene->SetRotation(sun, glm::vec3(-30, 0, 0));
 
 
-
-	auto spot = m_scene->CreateSpotLight(*m_renderer);
-	m_scene->SetRotation(spot, glm::vec3(-90, 0, 0));
+	//auto spot = m_scene->CreateSpotLight(*m_renderer);
+	//m_scene->SetRotation(spot, glm::vec3(-90, 0, 0));
 
 	//m_scene->CreatePointLight(*m_renderer);
 

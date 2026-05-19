@@ -382,7 +382,8 @@ VkImageView VulkanUtils::CreateImageView(
 	VkFormat format,
 	VkImageAspectFlags aspectFlags,
 	uint32_t layerCount,
-	VkImageViewType viewType
+	VkImageViewType viewType,
+	uint32_t baseArrayLayer
 
 )
 {
@@ -395,7 +396,7 @@ VkImageView VulkanUtils::CreateImageView(
 	viewInfo.subresourceRange.aspectMask = aspectFlags;
 	viewInfo.subresourceRange.baseMipLevel = 0;
 	viewInfo.subresourceRange.levelCount = 1;
-	viewInfo.subresourceRange.baseArrayLayer = 0;
+	viewInfo.subresourceRange.baseArrayLayer = baseArrayLayer;
 	viewInfo.subresourceRange.layerCount = layerCount;
 
 	VkImageView imageView;
@@ -570,8 +571,8 @@ void VulkanUtils::TransitionImageLayout(
 			VK_IMAGE_ASPECT_COLOR_BIT;
 	}
 
-	
-	
+
+
 	barrier.subresourceRange.baseMipLevel = 0;
 	barrier.subresourceRange.levelCount = 1;
 	barrier.subresourceRange.baseArrayLayer = 0;
@@ -864,7 +865,7 @@ void VulkanUtils::CreateDeviceBuffer(
 		memory
 	);
 
-	VulkanUtils::CopyBuffer(device,commandPool,graphicsQueue,stagingBuffer, buffer, size);
+	VulkanUtils::CopyBuffer(device, commandPool, graphicsQueue, stagingBuffer, buffer, size);
 
 	vkDestroyBuffer(device, stagingBuffer, nullptr);
 	vkFreeMemory(device, stagingMemory, nullptr);
