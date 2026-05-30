@@ -345,6 +345,33 @@ void ShadowPass::UpdateCascades(
 			glm::vec3(0.0f, 1.0f, 0.0f)
 		);
 
+
+		// Shimmering fix apparently...
+
+		// Snap target to texel grid in light space
+		// This prevents sub-texel movement between frames
+		float worldUnitsPerTexel = (s * 2.0f) / (float)SHADOW_SIZE;
+
+		// Transform origin into light space
+		glm::vec4 originLS = lightView * glm::vec4(target, 1.0f);
+
+		// Snap to nearest texel
+		originLS.x = floor(originLS.x / worldUnitsPerTexel) * worldUnitsPerTexel;
+		originLS.y = floor(originLS.y / worldUnitsPerTexel) * worldUnitsPerTexel;
+
+		// Reconstruct snapped target in world space
+		glm::vec4 snappedLS = glm::inverse(lightView) * originLS;
+		glm::vec3 snappedTarget = glm::vec3(snappedLS);
+
+		// Rebuild light view with snapped target
+		lightView = glm::lookAt(
+			snappedTarget - glm::normalize(lightDir) * 50.0f,
+			snappedTarget,
+			glm::vec3(0.0f, 1.0f, 0.0f)
+		);
+
+
+
 		glm::mat4 lightProj = glm::orthoRH_ZO(
 			-s, s,
 			-s, s,

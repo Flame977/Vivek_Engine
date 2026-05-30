@@ -30,6 +30,8 @@ public:
 
 	void ResetResizeFlag();
 
+	void EnableVsync();
+
 
 	bool IsMouseButtonDown(int button) const;
 

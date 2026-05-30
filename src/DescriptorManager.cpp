@@ -17,8 +17,7 @@ void DescriptorManager::CreateDescriptorPool(VkDevice device, uint32_t maxFrames
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	poolSizes[1].descriptorCount = maxObjects + skyboxCount;
 
-
-	// OG code
+	 //OG code...
 	/*VkDescriptorPoolSize poolSize{};
 	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSize.descriptorCount = maxSets;*/

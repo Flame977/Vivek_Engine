@@ -654,6 +654,11 @@ void VulkanContext::CreateSwapchain()
 	createInfo.imageExtent = extent;
 	createInfo.imageArrayLayers = 1;
 	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	
+	//this enables vsync...
+	createInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+	
+	
 	//createInfo.pNext = nullptr;
 
 	auto indices =
@@ -1184,9 +1189,7 @@ void VulkanContext::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t 
 	//DrawSkybox(commandBuffer, frame);
 
 
-
 	/*
-
 	vkCmdBindPipeline(
 		commandBuffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1202,8 +1205,6 @@ void VulkanContext::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t 
 		0,
 		nullptr);
 	*/
-
-
 
 
 	//loop for binding and drawing objects

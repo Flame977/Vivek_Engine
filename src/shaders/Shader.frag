@@ -59,7 +59,7 @@ layout(set = 0, binding = 0) uniform CameraUBO
 int SelectCascade(vec3 fragPos)
 {
     //debugging...
-    //return 2;
+    //return 3;
     
     // Transform fragment to view space to get depth
     float depth = abs((ubo.view * vec4(fragPos, 1.0)).z);
@@ -72,6 +72,21 @@ int SelectCascade(vec3 fragPos)
 
     // Beyond all cascades — no shadow
     return SHADOW_CASCADE_COUNT - 1;
+}
+
+vec4 VisualizeCascades(vec3 finalColor)
+{
+    // DEBUG: visualize cascade selection
+    // Add this at the end of main() temporarily
+    int cascadeIndex = SelectCascade(fragPos);
+    vec3 cascadeColors[4] = vec3[](
+        vec3(1.0, 0.0, 0.0),  // cascade 0 = red
+        vec3(0.0, 1.0, 0.0),  // cascade 1 = green
+        vec3(0.0, 0.0, 1.0),  // cascade 2 = blue
+        vec3(1.0, 1.0, 0.0)   // cascade 3 = yellow
+    );
+
+    return vec4(mix(finalColor, cascadeColors[cascadeIndex], 0.5), 1.0);
 }
 
 
@@ -89,7 +104,6 @@ vec2 ComputeReceiverPlaneDepthBias(vec3 projCoords)
 
 float CalculateShadow(vec3 fragPos, vec3 normal, vec3 lightDir)
 {
-
     // Select cascade
     int cascadeIndex = SelectCascade(fragPos);
 
@@ -110,8 +124,14 @@ float CalculateShadow(vec3 fragPos, vec3 normal, vec3 lightDir)
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0).xy;
 
-    for (int x = -1; x <= 1; ++x)
-        for (int y = -1; y <= 1; ++y)
+    // odd numbers only !
+    // also need to pass the filter size as a uniform...
+
+    int filterSize = 9;
+    int halfFilter = filterSize / 2;
+
+    for (int x = -halfFilter; x <= halfFilter; ++x)
+        for (int y = -halfFilter; y <= halfFilter; ++y)
         {
 
             // Sample the array texture with cascade index as the layer
@@ -124,7 +144,7 @@ float CalculateShadow(vec3 fragPos, vec3 normal, vec3 lightDir)
 
         }
 
-    shadow /= 9.0;
+    shadow /= float(filterSize * filterSize);
     return shadow;
 }
 
@@ -228,19 +248,7 @@ void main()
 
     outColor = vec4(finalColor, 1.0);
 
-
-    // DEBUG: visualize cascade selection
-    // Add this at the end of main() temporarily
-    int cascadeIndex = SelectCascade(fragPos);
-    vec3 cascadeColors[4] = vec3[](
-        vec3(1.0, 0.0, 0.0),  // cascade 0 = red
-        vec3(0.0, 1.0, 0.0),  // cascade 1 = green
-        vec3(0.0, 0.0, 1.0),  // cascade 2 = blue
-        vec3(1.0, 1.0, 0.0)   // cascade 3 = yellow
-    );
-    outColor = vec4(mix(finalColor, cascadeColors[cascadeIndex], 0.5), 1.0);
-
-
+    //outColor = VisualizeCascades(finalColor);
 
 
 }
