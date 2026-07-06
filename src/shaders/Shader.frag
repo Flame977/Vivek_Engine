@@ -47,6 +47,8 @@ layout(set = 0, binding = 0) uniform CameraUBO
 
     CascadeData cascades[SHADOW_CASCADE_COUNT];
 
+    int PCF_filterSize;
+
     Light lights[MAX_LIGHTS];
 } ubo;
 
@@ -127,7 +129,7 @@ float CalculateShadow(vec3 fragPos, vec3 normal, vec3 lightDir)
     // odd numbers only !
     // also need to pass the filter size as a uniform...
 
-    int filterSize = 9;
+    int filterSize = ubo.PCF_filterSize;
     int halfFilter = filterSize / 2;
 
     for (int x = -halfFilter; x <= halfFilter; ++x)

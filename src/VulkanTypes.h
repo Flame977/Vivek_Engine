@@ -68,6 +68,8 @@ struct alignas(16) CameraUBO
 	//the cascade count is coming from shadow pass class... need to put it some where else
 	GPUCascadeData cascades[Constants::SHADOW_CASCADE_COUNT];
 
+	int PCF_filterSize;
+
 	Light lights[MAX_LIGHTS];
 };
 

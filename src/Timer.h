@@ -8,19 +8,22 @@ public:
 	
 	Timer();
 
-	// Call once per frame
+	// Called once per frame
 	void Tick();
 
 	float GetDeltaTime() const;
 
 	std::chrono::time_point<Clock> GetTime() const;
 
+	float GetCurrentFrameExecTime() const;
+
 private:
 
-	std::chrono::time_point<Clock> m_lastTime;
+	std::chrono::time_point<Clock> m_previousFrameStart;
+
+	std::chrono::time_point<Clock> m_frameStart;
 
 	float m_deltaTime = 0.0f;
 
-	std::chrono::time_point<Clock> m_time;
 
 };

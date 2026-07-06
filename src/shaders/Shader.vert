@@ -46,6 +46,8 @@ layout(set = 0, binding = 0) uniform CameraUBO
 
     CascadeData cascades[SHADOW_CASCADE_COUNT];
 
+    int PCF_filterSize;
+
     Light lights[MAX_LIGHTS];
 } camera;
 

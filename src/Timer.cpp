@@ -2,17 +2,16 @@
 
 Timer::Timer()
 {
-	m_lastTime = Clock::now();
+	m_frameStart = Clock::now();
+	m_previousFrameStart = m_frameStart;
 }
 
 void Timer::Tick()
 {
-	auto currentTime = Clock::now();
-	std::chrono::duration<float> delta = currentTime - m_lastTime;
+	m_previousFrameStart = m_frameStart;
+	m_frameStart = Clock::now();
+	std::chrono::duration<float> delta = m_frameStart - m_previousFrameStart;
 	m_deltaTime = delta.count();
-	m_lastTime = currentTime;
-
-	m_time = currentTime;
 }
 
 float Timer::GetDeltaTime() const
@@ -22,5 +21,12 @@ float Timer::GetDeltaTime() const
 
 std::chrono::time_point<Clock> Timer::GetTime() const
 {
-	return m_time;
+	return m_frameStart;
 }
+
+float Timer::GetCurrentFrameExecTime() const
+{
+	return std::chrono::duration<float>(Clock::now() - m_frameStart).count();
+}
+
+

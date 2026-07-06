@@ -53,7 +53,7 @@ void Renderer::DrawFrame(const Camera& camera, const Scene& scene)
 	camData.view = camera.GetView();
 	camData.proj = camera.GetProjection();
 	camData.cameraPos = glm::vec4(camera.GetPosition(), 1.0f);
-
+	camData.PCF_filterSize = m_shadowPass.PCF_filterSize;
 
 	// -----------------------------
 	// ECS LIGHT GATHERING HERE

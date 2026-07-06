@@ -104,6 +104,8 @@ void Engine::Run()
 		}
 
 		OnUpdate();
+
+		LimitFPS(600);
 	}
 
 	m_renderer->WaitIdle();
@@ -232,6 +234,26 @@ void Engine::HandleCameraInput(float deltaTime)
 }
 
 
+void Engine::LimitFPS(uint32_t targetFPS)
+{
+	if (targetFPS == 0)
+		return;
+
+	float targetFrameTime = 1.0 / static_cast<float>(targetFPS);
+
+	float frameTime = m_timer.GetCurrentFrameExecTime();
+
+	if (frameTime < targetFrameTime)
+	{
+		std::this_thread::sleep_for(
+			std::chrono::duration<float>(
+				targetFrameTime - frameTime
+			)
+		);
+	}
+
+}
+
 
 void Engine::DrawImgui()
 {
@@ -265,10 +287,6 @@ float Engine::DrawMenuBar(Scene& scene)
 	{
 		if (ImGui::BeginMenu("Scene"))
 		{
-			ImGui::MenuItem("Show Skybox", nullptr, &scene.DrawSkybox);
-
-			ImGui::MenuItem("Show Stats", nullptr, &m_showStats);
-
 
 			if (ImGui::MenuItem("Perspective Camera"))
 			{
@@ -280,7 +298,6 @@ float Engine::DrawMenuBar(Scene& scene)
 				m_camera->SetProjectionType(ProjectionType::Orthographic);
 				//m_camera->SetOrthographicSize(200);
 			}
-
 
 			if (ImGui::MenuItem("Create Directional Light"))
 			{
@@ -298,11 +315,12 @@ float Engine::DrawMenuBar(Scene& scene)
 
 			}
 
-
-
 			ImGui::EndMenu();
 		}
 
+		ImGui::MenuItem("Show Stats", nullptr, &m_showStats);
+
+		ImGui::MenuItem("Show Skybox", nullptr, &scene.DrawSkybox);
 
 	}
 
@@ -532,7 +550,7 @@ void Engine::DrawStats()
 {
 	if (!m_showStats)return;
 
-	ImGui::SetNextWindowSize(ImVec2(250,100));
+	ImGui::SetNextWindowSize(ImVec2(250, 100));
 
 	ImGui::Begin("Stats");
 

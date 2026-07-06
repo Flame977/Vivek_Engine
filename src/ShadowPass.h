@@ -42,6 +42,8 @@ public:
 
 	static constexpr uint32_t SHADOW_SIZE = 4096;
 
+	uint32_t PCF_filterSize = 3;
+
 private:
 
 	void CreateShadowMap();

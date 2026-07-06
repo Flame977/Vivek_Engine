@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <thread>
 #include "Camera.h"
 #include "Timer.h"
 #include "Window.h"
@@ -20,6 +21,9 @@
 #include "gtx/matrix_decompose.hpp"
 
 
+constexpr uint32_t TARGET_FPS = 144;
+constexpr double TARGET_FRAME_TIME = 1.0 / TARGET_FPS;
+
 class Engine
 {
 
@@ -38,6 +42,8 @@ private:
 	void OnResize(int width, int height);
 
 	void HandleCameraInput(float deltaTime);
+
+	void LimitFPS(uint32_t targetFPS);
 
 	void DrawImgui();
 
